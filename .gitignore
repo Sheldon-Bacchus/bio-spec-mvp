@@ -3,3 +3,6 @@
 .pytest_cache/
 .venv/
 dist/
+.bio/runs/
+.specify/extensions/.backup/
+.specify/.workflow-install.lock

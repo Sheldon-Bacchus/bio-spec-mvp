@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "workflows": {
+    "speckit": {
+      "name": "Full SDD Cycle",
+      "version": "1.0.0",
+      "description": "Runs specify \u2192 plan \u2192 tasks \u2192 implement with review gates",
+      "source": "bundled",
+      "installed_at": "2026-09-02T13:28:10.762464+00:00",
+      "updated_at": "2026-09-02T13:28:10.762475+00:00"
+    },
+    "bio-research-mvp": {
+      "name": "Bio Research Spec Kit MVP",
+      "version": "0.1.0",
+      "description": "Official Spec Kit planning lifecycle followed by one bounded, reviewable MultiQC execution slice.",
+      "source": "03-package-sources\\workflow\\workflow.yml",
+      "installed_at": "2026-09-02T13:29:25.433281+00:00",
+      "updated_at": "2026-09-02T13:29:25.433299+00:00"
+    }
+  }
+}

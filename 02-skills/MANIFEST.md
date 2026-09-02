@@ -22,3 +22,16 @@
 | runtime-projection | wgcna-module-constraint | .agents/skills/wgcna-module-constraint | OK |
 
 压缩归档哈希：compressed/SHA256SUMS.txt
+
+## 独立项目运行时入口
+
+本目录是 13 个 Bio Skill 的审计/来源层。单独下载后，Codex 和 Spec Kit 实际
+使用的根级入口是：
+
+- `.specify/`：官方脚本、模板、Constitution、已安装 preset、extension 和
+  workflow registry；
+- `.agents/skills/`：官方 9 个核心阶段、`speckit-taskstoissues`、Bio 扩展
+  命令和 5 个当前项目适配器。
+
+因此，`runtime-projection` 和根级 `.agents/skills` 的副本不计为新的逻辑
+Skill；参考组件也不会自动进入当前 MVP workflow。

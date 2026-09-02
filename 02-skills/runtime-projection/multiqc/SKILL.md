@@ -12,7 +12,7 @@ metadata:
 Read [the upstream QC guidance](references/upstream-automated-qc-reports.md)
 when deciding module scope, sample-name handling, or gate boundaries. The
 project executable is the bounded wrapper at
-`extensions/bio-multiqc/scripts/run_multiqc.py`; it calls the host's real
+`.specify/extensions/bio-multiqc/scripts/run_multiqc.py`; it calls the host's real
 MultiQC CLI.
 
 ## Contract
@@ -25,13 +25,13 @@ MultiQC CLI.
   output hashes. The HTML is the user-facing artifact; JSON is for checks.
 - Default command from the repository root:
 
-  `python extensions/bio-multiqc/scripts/run_multiqc.py --input <input> --output <output> --config extensions/bio-multiqc/config/multiqc_config.yaml --multiqc-bin .venv/Scripts/multiqc.exe`
+  `python .specify/extensions/bio-multiqc/scripts/run_multiqc.py --input <input> --output <output> --config .specify/extensions/bio-multiqc/config/multiqc_config.yaml --multiqc-bin .venv/Scripts/multiqc.exe`
 
 ## Research Core contract handoff
 
 For the approved `005-skills-nextflow-research-core` representative slice, the
 candidate machine contract is recorded at
-`specs/005-skills-nextflow-research-core/contracts/multiqc/node.contract.json`.
+`01-spec-work-package/contracts/multiqc/node.contract.json`.
 It is a feature-level contract artifact, not a replacement for this Skill's
 prose and not an instruction to run a Spec Kit lifecycle. The static node
 contract declares capability and interface; the per-run

@@ -18,7 +18,7 @@ scientifically validated.
 
 The preset manifest also exposes a direct machine-readable binding from the
 MultiQC component and Skill path to
-`specs/005-skills-nextflow-research-core/contracts/multiqc/node.contract.json`;
+`01-spec-work-package/contracts/multiqc/node.contract.json`;
 the profile contract remains the source for ownership and boundary semantics.
 The binding is a bounded local evidence slice: unseen-component validation and
 the A0-A3 effect score remain not run, so it is not a reusable-Core or
@@ -27,6 +27,6 @@ scientific-validity claim.
 Install it during local development with:
 
 ```powershell
-specify preset add --dev .\presets\bio-research-mvp
+specify preset add --dev .\03-package-sources\preset
 specify preset resolve spec-template
 ```

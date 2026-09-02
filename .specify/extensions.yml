@@ -1,0 +1,6 @@
+installed:
+- bio-multiqc
+- bio-review
+settings:
+  auto_execute_hooks: true
+hooks: {}
