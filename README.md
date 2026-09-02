@@ -17,7 +17,7 @@ bio-spec-005-research-core/
 │   ├── extensions/                 # 已安装的 MultiQC、Review 扩展
 │   └── workflows/                  # speckit + bio-research-mvp
 ├── .agents/skills/                 # Codex 实际发现的 Skill 入口
-│   ├── speckit-*                   # 9 个核心阶段 + taskstoissues
+│   ├── speckit-*                   # 官方兼容入口；规范 ID 见 suites/
 │   ├── speckit-bio-*               # Bio 扩展命令入口
 │   └── 5 个项目适配器             # bulk / integration / MultiQC / pathway / WGCNA
 ├── specs/                          # 新建 feature 的标准目录
@@ -42,10 +42,34 @@ bio-spec-005-research-core/
   `speckit-taskstoissues` 辅助 Skill；
 - 当前项目的 Bio 命令入口和运行时注册状态。
 
-核心九阶段为：
+核心九阶段的官方兼容名为：
 `constitution`、`specify`、`clarify`、`plan`、`tasks`、`analyze`、
 `checklist`、`implement`、`converge`。`taskstoissues` 是辅助命令，不计入
 核心九阶段。
+
+### 核心九阶段的规范 suite ID
+
+为了让 `spec`、`plan`、`review`、`implement` 等层级和官方阶段名称都可见，
+项目增加了规范 ID：
+
+```text
+spec-01-constitution
+spec-02-specify
+spec-03-clarify
+plan-04-plan
+plan-05-tasks
+review-06-analyze
+review-07-checklist
+implement-08-implement
+review-09-converge
+```
+
+完整映射在 [`suites/README.md`](suites/README.md) 和
+[`03-package-sources/suite-registry.yml`](03-package-sources/suite-registry.yml)。
+这里的规范 ID 不取代官方 `speckit-*` Codex 入口，也不把 feature 产物改成
+`spec-xxx.md` 或 `plan-xxx.md`；官方 feature 目录仍使用 `spec.md`、`plan.md`
+和 `tasks.md`。Bio 的 MultiQC、bulk、pathway、WGCNA 等属于项目选择的 domain
+suite，不属于这九个核心 suite。
 
 官方的项目边界不是把 Spec Kit CLI 源码整份复制进每个项目。项目保存初始化
 后的运行时文件；`specify-cli` 仍在机器上单独安装，Python、Codex 和 MultiQC
