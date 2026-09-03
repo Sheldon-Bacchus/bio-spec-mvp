@@ -6,12 +6,14 @@ Run these commands from the repository root after implementation.
 
 ```powershell
 Get-ChildItem -Force
-rg --files control skills extensions examples archive specs .specify .agents
+rg --files control skills extensions examples archive tests specs .specify .agents
 ```
 
 The source layer must contain `control/`, `skills/` (including
 `skills/original-sop/`), `extensions/`, `examples/`, and `archive/`; the
 official runtime remains at `.specify/`, `.agents/`, and `specs/`.
+`tests/` is an independent verification-only boundary and is not a runtime
+source.
 
 ## 2. Check official runtime and package resolution
 
@@ -66,3 +68,14 @@ Test-Path .\control\workflow\workflow.yml
 The first two paths are concrete example assets; they are not inputs to the
 generic `research-control` workflow. The `skills/original-sop/` collection is
 also source-only until its individual contracts and verifiers are reviewed.
+
+## 6. Run the independent source verification (when R is available)
+
+```powershell
+python .\tests\smoke_test.py
+python .\tests\e2e_test.py
+```
+
+These tests validate the explicitly retained SOP source collection only. The
+E2E test uses a temporary work directory and does not write reports into the
+repository.

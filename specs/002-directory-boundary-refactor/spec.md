@@ -67,6 +67,10 @@ bio-spec-005-research-core/
 │       └── requirements.txt
 ├── archive/                          # historical/reference material only
 │   └── 005-work-package/
+├── tests/                            # verification-only tests and fixtures
+│   ├── smoke_test.py
+│   ├── e2e_test.py
+│   └── e2e_workspace/
 └── README.md
 ```
 
@@ -195,6 +199,10 @@ source path under `skills/`.
   (`specify → plan → tasks → implement → converge`); this feature MUST NOT add
   MultiQC, project-specific data processing, review, score, repair, compression,
   or experiment steps.
+- **FR-011**: Verification scripts and their fixtures MUST remain under a
+  clearly separate top-level `tests/` boundary; they MUST resolve repository
+  paths rather than machine-specific paths and MUST NOT become generic
+  workflow inputs or installed Skill entries.
 
 ### Key Entities *(repository entities)*
 

@@ -22,6 +22,7 @@ properties:
       - extensions
       - examples
       - archive
+      - tests
     properties:
       control:
         type: array
@@ -56,6 +57,13 @@ properties:
         type: array
         const:
           - archive/005-work-package
+      tests:
+        type: array
+        const:
+          - tests/README.md
+          - tests/smoke_test.py
+          - tests/e2e_test.py
+          - tests/e2e_workspace
   forbidden_runtime_directories:
     type: array
     const:

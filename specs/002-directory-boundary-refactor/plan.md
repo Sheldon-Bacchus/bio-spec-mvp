@@ -26,7 +26,8 @@ projections; no database or object store.
 
 **Testing**: `specify check`, `specify integration status`, preset/workflow/
 Extension list and resolve commands, YAML/JSON parsing, file inventory/hash
-comparison, `git diff --check`, and bounded `rg` stale-path/boundary scans.
+comparison, Python syntax plus source-only smoke/E2E checks, `git diff --check`,
+and bounded `rg` stale-path/boundary scans.
 
 **Target Platform**: Windows PowerShell from the repository root; the layout
 must remain usable after an independent GitHub checkout.
@@ -148,6 +149,7 @@ skills/                           # Skill sources and source archives
 extensions/                       # independent Extension sources
 examples/bio-multiqc/             # concrete fixture and optional dependency
 archive/005-work-package/         # historical work package and evidence
+tests/                            # verification-only scripts and fixtures
 ```
 
 **Structure Decision**: Use semantic ownership directories instead of numeric
@@ -156,7 +158,9 @@ stage directories. `control/` is deliberately narrower than `skills/` and
 domain Skill or Extension is selected only by a feature plan/task. Concrete
 fixtures are visible under `examples/`, and historical evaluation/review files
 are visible under `archive/`. The official `.specify/`, `.agents/`, and
-`specs/` locations remain unchanged.
+`specs/` locations remain unchanged. `tests/` is a separate verification
+boundary for explicit source checks; it is not an additional runtime stage or
+generic workflow input.
 
 ### Exact migration map
 

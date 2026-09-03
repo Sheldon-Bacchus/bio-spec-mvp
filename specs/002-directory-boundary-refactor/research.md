@@ -34,6 +34,10 @@ content.
   collection containing 11 `SKILL.md`-led components. A top-level Skill source
   would violate the ownership tree, so it is normalized to
   `skills/original-sop/` while keeping its content and Skill IDs.
+- A later remote update added `tests/smoke_test.py`, `tests/e2e_test.py`, and
+  their fixtures/evidence. These files are verification assets, not runtime
+  sources, so they remain in a separate top-level `tests/` boundary and use
+  repository-relative paths.
 
 ## Options considered
 
@@ -84,6 +88,8 @@ scripts and Codex discovery expect `.specify/`, `.agents/`, and `specs/` there.
    source-only material. Do not add it to the current 13-entry catalog or
    `.agents/skills/` until each component has a complete contract, verifier,
    dependency review, and an explicit feature selection.
+7. Keep imported smoke/E2E validation under `tests/`; execute the E2E dry-run
+   in a temporary directory so tracked fixtures and reports are not mutated.
 
 ## Risks and controls
 

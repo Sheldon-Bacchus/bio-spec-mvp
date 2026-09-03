@@ -30,3 +30,4 @@
 - [x] CHK-020 The root README and ownership READMEs show the same target tree.
 - [x] CHK-021 The concurrent SOP source collection is under `skills/original-sop/` and remains source-only.
 - [x] CHK-022 No `orginal-sop-skills/` top-level directory or implicit SOP workflow registration remains.
+- [x] CHK-023 Imported smoke/E2E checks are isolated under `tests/`, use repository-relative paths, and keep E2E outputs temporary.

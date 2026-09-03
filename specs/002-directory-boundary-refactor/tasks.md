@@ -48,6 +48,8 @@ execution step.
 | T025 | convergence | blocked: no domain Skill required | research-control | spec, plan, tasks, implementation, validation | convergence assessment | T024 | official `speckit-converge` review | no actionable boundary gap remains, or a traceable convergence phase is recorded | preserve actionable gap; do not silently waive | official converge stage |
 | T026 | post-merge-layout | blocked: no domain Skill required | research-control | concurrent `orginal-sop-skills/` source collection | `skills/original-sop/` source collection and boundary docs | T025 | exact path assertions and source-only scan | no unowned top-level Skill source remains and 11 components are preserved | stop and keep the concurrent source visible | post-merge remote commit |
 | T027 | post-merge-convergence | blocked: no domain Skill required | research-control | updated spec, plan, tasks, tree, and registries | final convergence assessment | T026 | official `speckit-converge` review plus CLI/boundary checks | no actionable directory-boundary gap remains after merge | preserve the gap and do not claim completion | post-merge feature 002 |
+| T028 | post-merge-verification | blocked: no domain Skill required | research-control | imported `tests/` scripts and fixtures | repository-local verification scripts and temporary E2E execution | T027 | Python syntax check, path scan, and E2E dry-run | tests do not depend on the old checkout path or write tracked outputs | stop and repair verification boundary | post-merge remote test commit |
+| T029 | post-merge-convergence | blocked: no domain Skill required | research-control | test boundary docs, contract, and validation output | convergence decision for verification-layer addition | T028 | official `speckit-converge` review plus full CLI/boundary checks | no actionable directory-boundary gap remains | preserve the gap and do not claim completion | post-merge feature 002 |
 
 ## Phase 1: Setup
 
@@ -128,6 +130,19 @@ generic workflow remain unchanged.
 - [x] T026 Move the concurrent `orginal-sop-skills/` tree to `skills/original-sop/`, clean its README boundary statement, and update the root/Skill/feature documentation.
 - [x] T027 Run the post-merge official convergence assessment and confirm the current catalog remains 13 entries while the 11 SOP sources stay source-only.
 
+## Phase 8: Post-merge verification boundary
+
+**Goal**: Keep the newly merged source checks in a separate verification layer,
+make them portable to an independent checkout, and prevent E2E output from
+mutating tracked repository evidence.
+
+**Independent Test**: Python syntax, stale-path, source-only, and E2E dry-run
+checks pass from the repository root; the current catalog and generic workflow
+remain unchanged.
+
+- [x] T028 Normalize the imported `tests/` scripts to discover the repository root and Rscript, point at `skills/original-sop/`, and run E2E work in a temporary directory.
+- [x] T029 Run the post-merge official convergence assessment for the verification boundary and confirm `tests/` remains outside runtime, control, catalog, and generic workflow ownership.
+
 ## Dependencies and execution order
 
 - T001-T004 are the setup gate; no destination is created before T003 passes.
@@ -139,6 +154,8 @@ generic workflow remain unchanged.
 - T025 runs after the original implementation tasks and their verifiers pass.
 - The concurrent remote addition triggered T026; T027 is the final convergence
   gate after that post-merge normalization.
+- The later remote test addition triggered T028; T029 is the final convergence
+  gate after verification-layer normalization.
 
 ## Parallel execution examples
 

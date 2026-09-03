@@ -1,12 +1,12 @@
-[2026-09-03 10:07:21] [INFO] Target Project Directory: E:/all-agent-workspace/bio-skills/tests/e2e_workspace
-[2026-09-03 10:07:21] [INFO] Skills Root Directory:    E:/all-agent-workspace/bio-skills/orginal-sop-skills
+[2026-09-03 10:07:21] [INFO] Target Project Directory: E:/all-agent-workspace/codex-projects/bio-skills/bio-spec-005-research-core/tests/e2e_workspace
+[2026-09-03 10:07:21] [INFO] Skills Root Directory:    E:/all-agent-workspace/codex-projects/bio-skills/bio-spec-005-research-core/skills/original-sop
 [2026-09-03 10:07:21] [INFO] Execution Range:          Stage 01 -> Stage 10
 [2026-09-03 10:07:21] [INFO] Dry Run Mode:             ENABLED
 [2026-09-03 10:07:21] [INFO] Checking environment prerequisites...
 [2026-09-03 10:07:21] [INFO] R Version detected: 4.6.1 (x86_64-w64-mingw32)
 [2026-09-03 10:07:21] [ERROR] Missing required R packages: glmnet, randomForest, pROC, ggplot2, VennDiagram
-[2026-09-03 10:07:52] [INFO] Target Project Directory: E:/all-agent-workspace/bio-skills/tests/e2e_workspace
-[2026-09-03 10:07:52] [INFO] Skills Root Directory:    E:/all-agent-workspace/bio-skills/orginal-sop-skills
+[2026-09-03 10:07:52] [INFO] Target Project Directory: E:/all-agent-workspace/codex-projects/bio-skills/bio-spec-005-research-core/tests/e2e_workspace
+[2026-09-03 10:07:52] [INFO] Skills Root Directory:    E:/all-agent-workspace/codex-projects/bio-skills/bio-spec-005-research-core/skills/original-sop
 [2026-09-03 10:07:52] [INFO] Execution Range:          Stage 01 -> Stage 10
 [2026-09-03 10:07:52] [INFO] Dry Run Mode:             ENABLED
 [2026-09-03 10:07:52] [INFO] Checking environment prerequisites...
@@ -48,4 +48,4 @@
 [2026-09-03 10:07:52] [STAGE] Beginning Stage 10: Diagnostic Biomarker ROC & AUC Validation [bio-10-biomarker-roc]
 [2026-09-03 10:07:52] [DRYRUN] Would execute script: roc_validation.R
 [2026-09-03 10:07:52] [GATE] Stage 10 Gate [FAILED]: auc_report.csv not found
-[2026-09-03 10:07:52] [SUCCESS] Consolidated Gate summary saved to: E:/all-agent-workspace/bio-skills/tests/e2e_workspace/pipeline_gate_report.csv
+[2026-09-03 10:07:52] [SUCCESS] Consolidated Gate summary saved to: E:/all-agent-workspace/codex-projects/bio-skills/bio-spec-005-research-core/tests/e2e_workspace/pipeline_gate_report.csv

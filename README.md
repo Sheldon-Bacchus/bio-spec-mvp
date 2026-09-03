@@ -37,10 +37,14 @@ bio-spec-005-research-core/
 │       └── README.md
 ├── archive/                          # 历史内容，不是活动运行时
 │   └── 005-work-package/
+├── tests/                            # 独立验证层，不是运行时输入
+│   ├── smoke_test.py
+│   ├── e2e_test.py
+│   └── e2e_workspace/                # fixture 与已保留验证证据
 └── README.md
 ```
 
-四条边界必须保持：
+这些边界必须保持：
 
 | 目录 | 负责什么 | 明确不负责什么 |
 |---|---|---|
@@ -48,8 +52,10 @@ bio-spec-005-research-core/
 | `control/` | 通用 preset、workflow、命令 registry/map | 不放具体项目、fixture、MultiQC 步骤 |
 | `skills/`、`extensions/` | 能力来源和独立命令包 | 不自动组成固定科研流水线 |
 | `examples/`、`archive/` | 具体示例、历史工作包和证据 | 不成为 generic workflow 的隐式输入 |
+| `tests/` | 对明确选定来源的独立结构、语法和 dry-run 验证 | 不成为 generic workflow 或项目运行时的输入 |
 
 `review`、`score`、`repair`、压缩服务和数据实验没有被建成项目运行目录；
+`tests/` 也只是独立验证层，不会把来源 SOP 变成活动 workflow。
 `skills/archives/` 中的 zip 只是可追溯的来源归档。现有 `bio-*` 命名空间
 保持不变。
 

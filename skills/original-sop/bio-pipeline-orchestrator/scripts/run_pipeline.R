@@ -55,10 +55,15 @@ parse_args <- function() {
   
   # Auto-detect skills directory if not provided
   if (is.null(params$skills_dir)) {
+    script_file <- tryCatch(
+      normalizePath(sys.frames()[[1]]$ofile, winslash = "/", mustWork = FALSE),
+      error = function(e) ""
+    )
+    script_dir <- if (nzchar(script_file)) dirname(script_file) else ""
     candidates <- c(
       file.path(params$project_dir, ".agents", "skills"),
-      "E:/all-agent-workspace/bio-skills/.agents/skills",
-      file.path(dirname(dirname(sys.frame(1)$ofile %||% ".")), "..")
+      file.path(params$project_dir, "skills"),
+      if (nzchar(script_dir)) dirname(dirname(script_dir)) else character()
     )
     for (c_dir in candidates) {
       if (dir.exists(c_dir)) {
