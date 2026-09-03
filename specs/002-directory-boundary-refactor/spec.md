@@ -52,6 +52,7 @@ bio-spec-005-research-core/
 ├── skills/                           # Bio Skill source, references, catalog, archives
 │   ├── adapters/
 │   ├── reference-stack/
+│   ├── original-sop/                 # separately retained SOP source collection
 │   ├── runtime-projection/
 │   ├── archives/
 │   ├── skill-catalog.yml
@@ -161,6 +162,9 @@ source path under `skills/`.
 - An example is mistaken for a generic workflow input: preserve the example
   under `examples/` and verify that the generic workflow has no example path,
   MultiQC input, or concrete Skill binding.
+- A concurrent source collection is added at the repository root: move it under
+  `skills/` and record it as source-only until its contracts and verifiers are
+  reviewed; do not register or execute it implicitly.
 
 ## Requirements *(mandatory)*
 
@@ -171,7 +175,8 @@ source path under `skills/`.
 - **FR-002**: Generic preset, workflow, command registry, command map, and
   package-source documentation MUST be owned by `control/`.
 - **FR-003**: Skill source, reference-only components, runtime projections,
-  catalog, manifest, and source archives MUST be owned by `skills/`.
+  catalog, manifest, source archives, and the separately retained
+  `original-sop/` source collection MUST be owned by `skills/`.
 - **FR-004**: Independently installable Extension source trees MUST be owned by
   `extensions/` and MUST remain separate from the generic workflow source.
 - **FR-005**: Concrete domain fixtures and their optional dependencies MUST be

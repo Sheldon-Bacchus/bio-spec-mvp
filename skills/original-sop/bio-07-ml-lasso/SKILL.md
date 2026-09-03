@@ -48,5 +48,5 @@ description: >-
 - `LASSO.gene.txt` 非空（至少 1 个基因）
 
 ## 参考原始脚本
-- [geoGene07.基因名与表达量匹配.R](../../raw_code/geoGene07.基因名与表达量匹配.R)
-- [geoGene08.lasso.R](../../raw_code/geoGene08.lasso.R)
+- [geoGene07.基因名与表达量匹配.R](./scripts/gene_expression_match.R)
+- [geoGene08.lasso.R](./scripts/lasso_regression.R)

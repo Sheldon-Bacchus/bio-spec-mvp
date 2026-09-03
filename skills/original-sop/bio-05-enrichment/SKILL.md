@@ -39,4 +39,4 @@ description: >-
 - 至少 1 条 KEGG 通路显著 (q < 0.05)
 
 ## 参考原始脚本
-- [geoGene01.数据预处理最终版.R](../../raw_code/geoGene01.数据预处理最终版.R) （KEGG 部分）
+- [geoGene01.数据预处理最终版.R](../bio-01-geo-dataprep/scripts/geo_preprocess.R) （KEGG 部分）

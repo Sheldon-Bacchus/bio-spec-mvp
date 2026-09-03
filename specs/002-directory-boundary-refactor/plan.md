@@ -139,6 +139,7 @@ control/                          # generic control sources
 skills/                           # Skill sources and source archives
 ├── adapters/
 ├── reference-stack/
+├── original-sop/                 # concurrent source-only SOP collection
 ├── runtime-projection/
 ├── archives/
 ├── skill-catalog.yml
@@ -163,6 +164,7 @@ are visible under `archive/`. The official `.specify/`, `.agents/`, and
 |---|---|---|
 | `01-spec-work-package/` | `archive/005-work-package/` | historical work package and evidence |
 | `02-skills/` | `skills/` | Skill sources, references, projections, catalog, archives |
+| `orginal-sop-skills/` | `skills/original-sop/` | concurrent SOP source collection, not auto-registered |
 | `03-package-sources/preset/` | `control/preset/` | generic preset source |
 | `03-package-sources/workflow/` | `control/workflow/` | generic lifecycle workflow source |
 | `03-package-sources/suite-registry.yml` | `control/command-registry.yml` | generic command map registry |

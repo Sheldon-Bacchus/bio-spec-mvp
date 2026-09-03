@@ -106,8 +106,8 @@ The DAG contains two distinct bifurcations where sub-processes can execute concu
 To resume an interrupted pipeline execution after resolving an issue:
 ```bash
 # Resume from Stage 07 to conclusion
-Rscript .agents/skills/bio-pipeline-orchestrator/scripts/run_pipeline.R --start-stage=7 --end-stage=10
+Rscript skills/original-sop/bio-pipeline-orchestrator/scripts/run_pipeline.R --start-stage=7 --end-stage=10
 
 # Perform dry-run validation without executing scripts
-Rscript .agents/skills/bio-pipeline-orchestrator/scripts/run_pipeline.R --dry-run
+Rscript skills/original-sop/bio-pipeline-orchestrator/scripts/run_pipeline.R --dry-run
 ```

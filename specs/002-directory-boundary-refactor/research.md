@@ -30,6 +30,10 @@ content.
   control registry rather than as a peer runtime layer.
 - `.specify/extensions/.cache/` is ignored generated state. It must remain
   ignored and must not be promoted into the tracked source tree.
+- A concurrent remote commit added `orginal-sop-skills/` as a top-level source
+  collection containing 11 `SKILL.md`-led components. A top-level Skill source
+  would violate the ownership tree, so it is normalized to
+  `skills/original-sop/` while keeping its content and Skill IDs.
 
 ## Options considered
 
@@ -76,6 +80,10 @@ scripts and Codex discovery expect `.specify/`, `.agents/`, and `specs/` there.
 5. Do not create directories for review, score, repair, compression services,
    or data experiments. Existing Skill zip files are retained under
    `skills/archives/` as source archives only.
+6. Keep the concurrent SOP collection under `skills/original-sop/` as
+   source-only material. Do not add it to the current 13-entry catalog or
+   `.agents/skills/` until each component has a complete contract, verifier,
+   dependency review, and an explicit feature selection.
 
 ## Risks and controls
 

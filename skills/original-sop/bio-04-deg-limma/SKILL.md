@@ -51,5 +51,5 @@ description: >-
 - `geneNum` — 热图显示基因数（默认 50）
 
 ## 参考原始脚本
-- [geoGene05.diff.R](../../raw_code/geoGene05.diff.R)
-- [geoGene06.vol.R](../../raw_code/geoGene06.vol.R)
+- [geoGene05.diff.R](./scripts/limma_diff.R)
+- [geoGene06.vol.R](./scripts/volcano_heatmap.R)

@@ -4,6 +4,11 @@
 能力/契约查找，不定义固定 workflow；只有 `adapter` 条目可成为 task 的
 `skill_id`，`reference` 条目只能作为参考资料。
 
+`original-sop/` 保存远端并入的 11 个 SOP 来源组件。它们目前只有
+`SKILL.md + references/ + scripts/` 来源结构，尚未完成本项目所需的逐项
+输入/输出/failure contract、runtime projection 和 verifier 审查，因此不在
+当前 `skill-catalog.yml` 中，也不作为 generic workflow 的隐式步骤。
+
 | 类型 | Skill | 来源 | SKILL.md |
 |---|---|---|---|
 | adapter | bulk-pa-luad | spec-mvp/skills/bulk-pa-luad | OK |

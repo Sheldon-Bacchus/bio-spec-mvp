@@ -36,6 +36,7 @@ properties:
         const:
           - skills/adapters
           - skills/reference-stack
+          - skills/original-sop
           - skills/runtime-projection
           - skills/archives
           - skills/skill-catalog.yml
@@ -65,9 +66,10 @@ properties:
       - 01-spec-work-package
       - 02-skills
       - 03-package-sources
+      - orginal-sop-skills
   migration_map:
     type: array
-    minItems: 10
+    minItems: 11
     items:
       type: object
       required:

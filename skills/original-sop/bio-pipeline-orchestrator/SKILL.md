@@ -8,6 +8,12 @@ description: >-
 
 # 生信分析全流程编排器
 
+> **Source-only notice**: This SOP orchestrator is preserved as a reference
+> source under `skills/original-sop/`. Its `bio-full-pipeline` commands are not
+> registered in this project and are not part of the generic
+> `research-control` workflow. A feature must explicitly contract and select
+> any domain orchestration before execution.
+
 ## 依赖声明
 
 ### MCP 服务
@@ -22,18 +28,21 @@ description: >-
 
 ## 执行流程
 
-### 全流程运行
+### 全流程运行（仅保留来源命令形状，不可直接执行）
 ```
+# source-only reference; bio-full-pipeline is not registered here
 specify workflow run bio-full-pipeline
 ```
 
-### 断点续跑
+### 断点续跑（仅保留来源命令形状，不可直接执行）
 ```
+# source-only reference; bio-full-pipeline is not registered here
 specify workflow resume bio-full-pipeline
 ```
 
-### 状态查询
+### 状态查询（仅保留来源命令形状，不可直接执行）
 ```
+# source-only reference; bio-full-pipeline is not registered here
 specify workflow status bio-full-pipeline
 ```
 
@@ -75,4 +84,5 @@ npx repomix --output repomix-output.md
 
 ## 参考
 - [pipeline-dag.md](./references/pipeline-dag.md)
-- [.specify/workflows/bio-full-pipeline.yaml](../../.specify/workflows/bio-full-pipeline.yaml)
+- 当前项目未安装 `bio-full-pipeline` workflow；对应编排脚本仅作为
+  [`run_pipeline.R`](./scripts/run_pipeline.R) 的 source-only 参考。

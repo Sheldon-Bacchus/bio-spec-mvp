@@ -44,8 +44,10 @@ execution step.
 | T021 | US3 | blocked: no domain Skill required | research-control | root and local README links | documentation consistency result | T011-T013 | `rg` path scan and link review | displayed tree matches tracked tree and install commands | repair docs before release | spec SC-001/SC-002 |
 | T022 | US3 | blocked: no domain Skill required | research-control | `.gitignore`, generated cache | repository hygiene result | T015 | `git status --short`, ignored-path check | cache remains ignored/untracked; no generated noise is added | stop and remove only generated untracked noise if safe | spec edge cases |
 | T023 | US3 | blocked: no domain Skill required | research-control | all implementation changes | final command evidence | T017-T022 | `specify check`, integration, list/resolve, `git diff --check` | all required checks pass | preserve failure and do not commit as complete | quickstart.md |
-| T024 | US3 | blocked: no domain Skill required | research-control | checklist and completed implementation | checked acceptance checklist | T023 | checklist review against evidence | all CHK-001..CHK-020 are satisfied | leave unchecked item visible and block convergence | feature checklist |
+| T024 | US3 | blocked: no domain Skill required | research-control | checklist and completed implementation | checked acceptance checklist | T023 | checklist review against evidence | all CHK-001..CHK-022 are satisfied | leave unchecked item visible and block convergence | feature checklist |
 | T025 | convergence | blocked: no domain Skill required | research-control | spec, plan, tasks, implementation, validation | convergence assessment | T024 | official `speckit-converge` review | no actionable boundary gap remains, or a traceable convergence phase is recorded | preserve actionable gap; do not silently waive | official converge stage |
+| T026 | post-merge-layout | blocked: no domain Skill required | research-control | concurrent `orginal-sop-skills/` source collection | `skills/original-sop/` source collection and boundary docs | T025 | exact path assertions and source-only scan | no unowned top-level Skill source remains and 11 components are preserved | stop and keep the concurrent source visible | post-merge remote commit |
+| T027 | post-merge-convergence | blocked: no domain Skill required | research-control | updated spec, plan, tasks, tree, and registries | final convergence assessment | T026 | official `speckit-converge` review plus CLI/boundary checks | no actionable directory-boundary gap remains after merge | preserve the gap and do not claim completion | post-merge feature 002 |
 
 ## Phase 1: Setup
 
@@ -108,11 +110,23 @@ file inventory, and run the stale-path scan.
 - [x] T021 [US3] Verify root/local README links, install commands, and displayed tree agree with the actual tracked paths.
 - [x] T022 [US3] Verify `.specify/extensions/.cache/` remains ignored and no generated cache or unrelated artifact is staged.
 - [x] T023 [US3] Run the complete validation set from `quickstart.md`, including `specify check`, integration status, list/resolve checks, boundary scans, and `git diff --check`.
-- [x] T024 [US3] Mark the requirements checklist only from the validation evidence and confirm CHK-001 through CHK-020.
+- [x] T024 [US3] Mark the requirements checklist only from the validation evidence and confirm CHK-001 through CHK-022.
 
-## Phase 6: Convergence
+## Phase 6: Initial Convergence
 
 - [x] T025 Run the official convergence assessment after implementation; if no actionable gap exists, leave the task list unchanged by convergence and report the result.
+
+## Phase 7: Post-merge source normalization
+
+**Goal**: Keep a concurrently added Skill source collection inside the explicit
+`skills/` ownership boundary without registering or executing it implicitly.
+
+**Independent Test**: `skills/original-sop/` contains the 11 source components,
+the misspelled remote top-level directory is absent, and the current catalog/
+generic workflow remain unchanged.
+
+- [x] T026 Move the concurrent `orginal-sop-skills/` tree to `skills/original-sop/`, clean its README boundary statement, and update the root/Skill/feature documentation.
+- [x] T027 Run the post-merge official convergence assessment and confirm the current catalog remains 13 entries while the 11 SOP sources stay source-only.
 
 ## Dependencies and execution order
 
@@ -122,7 +136,9 @@ file inventory, and run the stale-path scan.
 - T014-T017 depend on the new control/Extension paths and restore runtime
   registration before final validation.
 - T018-T024 verify catalog, preservation, metadata, docs, hygiene, and runtime.
-- T025 runs only after all implementation tasks and their verifiers pass.
+- T025 runs after the original implementation tasks and their verifiers pass.
+- The concurrent remote addition triggered T026; T027 is the final convergence
+  gate after that post-merge normalization.
 
 ## Parallel execution examples
 
@@ -140,4 +156,5 @@ after moves to avoid referencing paths that do not yet exist.
 4. Re-register source packages through the official CLI and verify runtime
    projections.
 5. Run preservation, stale-path, boundary, parse, and CLI checks.
-6. Run official convergence and keep any actionable gap visible.
+6. Run initial convergence; if a concurrent source changes the tree, normalize
+   it under the same ownership contract and run post-merge convergence again.

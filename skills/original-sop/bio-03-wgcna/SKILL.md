@@ -51,5 +51,5 @@ description: >-
 - `power = sft$powerEstimate` 自动优选软阈值
 
 ## 参考原始脚本
-- [wgcna2019-1.R](../../raw_code/wgcna/wgcna2019-1.R)
-- [wgcna2019-02.R](../../raw_code/wgcna/wgcna2019-02.R)
+- [wgcna2019-1.R](./scripts/wgcna_build.R)
+- [wgcna2019-02.R](./scripts/wgcna_module_export.R)

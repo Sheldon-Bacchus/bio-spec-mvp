@@ -23,6 +23,7 @@ bio-spec-005-research-core/
 ├── skills/                           # Bio Skill 来源、参考稿、catalog、源归档
 │   ├── adapters/                     # 5 个可调用 adapter
 │   ├── reference-stack/              # 8 个 reference-only 组件
+│   ├── original-sop/                 # 11 个独立 SOP 来源组件，暂不注册
 │   ├── runtime-projection/           # 5 个 Skill 的来源层 projection
 │   ├── archives/                     # zip 与 SHA256 清单，仅是源归档
 │   ├── skill-catalog.yml
@@ -122,8 +123,10 @@ review-08-checklist        # optional quality control
 review-09-analyze          # optional quality control
 ```
 
-它们对应官方兼容的 `speckit-*` 入口。5 个 adapter 和 8 个 reference-only
-组件只是 `skills/skill-catalog.yml` 的候选能力/参考资料：具体 feature 在
+它们对应官方兼容的 `speckit-*` 入口。当前 catalog 中的 5 个 adapter 和 8 个
+reference-only 组件只是 `skills/skill-catalog.yml` 的候选能力/参考资料；另有
+11 个新合并的 SOP 来源组件保留在 `skills/original-sop/`，尚未完成逐项
+contract/runtime 审查，因此暂不加入当前 catalog，也不作为可调用 Skill。具体 feature 在
 `plan.md` 中选择，在 `tasks.md` 中冻结绑定，不能因为它们存在于目录中就被
 自动串接。
 

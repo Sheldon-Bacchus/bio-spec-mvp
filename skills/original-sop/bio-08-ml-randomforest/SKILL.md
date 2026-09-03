@@ -38,4 +38,4 @@ description: >-
 - `rf_genes.txt` 非空
 
 ## 参考原始脚本
-- [geoGene09.randomforest_p.R（修改版）.R](../../raw_code/geoGene09.randomforest_p.R（修改版）.R)
+- [geoGene09.randomforest_p.R（修改版）.R](./scripts/random_forest_importance.R)

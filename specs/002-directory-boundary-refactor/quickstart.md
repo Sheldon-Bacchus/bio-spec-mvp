@@ -9,9 +9,9 @@ Get-ChildItem -Force
 rg --files control skills extensions examples archive specs .specify .agents
 ```
 
-The source layer must contain `control/`, `skills/`, `extensions/`,
-`examples/`, and `archive/`; the official runtime remains at `.specify/`,
-`.agents/`, and `specs/`.
+The source layer must contain `control/`, `skills/` (including
+`skills/original-sop/`), `extensions/`, `examples/`, and `archive/`; the
+official runtime remains at `.specify/`, `.agents/`, and `specs/`.
 
 ## 2. Check official runtime and package resolution
 
@@ -45,7 +45,7 @@ ignored silently.
 ## 4. Verify stale paths and content preservation
 
 ```powershell
-rg -n --hidden --glob '!\.git/**' --glob '!\.specify/extensions/.cache/**' "01-spec-work-package|02-skills|03-package-sources|tests/fixtures/multiqc|suites/README|^requirements\.txt$" .
+rg -n --hidden --glob '!\.git/**' --glob '!\.specify/extensions/.cache/**' "01-spec-work-package|02-skills|03-package-sources|orginal-sop-skills|tests/fixtures/multiqc|suites/README|^requirements\.txt$" .
 git status --short
 git diff --check
 ```
@@ -64,4 +64,5 @@ Test-Path .\control\workflow\workflow.yml
 ```
 
 The first two paths are concrete example assets; they are not inputs to the
-generic `research-control` workflow.
+generic `research-control` workflow. The `skills/original-sop/` collection is
+also source-only until its individual contracts and verifiers are reviewed.

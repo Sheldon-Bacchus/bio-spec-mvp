@@ -39,4 +39,4 @@ description: >-
 - `group.txt` 中的样本名与表达矩阵列名一一对应
 
 ## 参考原始脚本
-- [geoGene01.数据预处理最终版.R](../../raw_code/geoGene01.数据预处理最终版.R)
+- [geoGene01.数据预处理最终版.R](./scripts/geo_preprocess.R)

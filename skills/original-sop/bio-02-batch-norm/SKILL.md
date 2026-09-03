@@ -46,6 +46,6 @@ description: >-
 - PCA 图中同组样本聚集、批次混合
 
 ## 参考原始脚本
-- [geoGene02.normalize.R](../../raw_code/geoGene02.normalize.R)
-- [geoGene03.sva.R](../../raw_code/geoGene03.sva.R)
-- [geoGene04.PCA.R](../../raw_code/geoGene04.PCA.R)
+- [geoGene02.normalize.R](./scripts/normalize.R)
+- [geoGene03.sva.R](./scripts/sva_combat.R)
+- [geoGene04.PCA.R](./scripts/pca_qc.R)
