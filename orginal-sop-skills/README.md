@@ -1,4 +1,4 @@
-# orginal-sop-skills - 11 个原版生信 SOP 技能集
+﻿# orginal-sop-skills - 11 个原版生信 SOP 技能集
 
 本目录包含从完整生信 SOP 课件（PPT）与原始 R 脚本重构提取的 11 个原子技能，覆盖从 GEO 数据预处理到 ROC 诊断验证的全生命周期。
 

@@ -1,4 +1,4 @@
-# Set Operation Logic & Multi-Algorithm Intersection Rationale
+﻿# Set Operation Logic & Multi-Algorithm Intersection Rationale
 
 ## 1. Methodological Rationale: Dual-Filter Paradigm
 

@@ -1,4 +1,4 @@
-# limma 差异分析原理与设计矩阵构建指南 (limma Linear Models & Design Matrix Guide)
+﻿# limma 差异分析原理与设计矩阵构建指南 (limma Linear Models & Design Matrix Guide)
 
 ## 1. limma 的统计学架构
 
