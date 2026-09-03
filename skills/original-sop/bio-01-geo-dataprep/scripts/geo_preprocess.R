@@ -32,9 +32,10 @@ parse_args <- function(defaults) {
       key_val <- sub("^--", "", arg)
       if (grepl("=", key_val)) {
         parts <- strsplit(key_val, "=", fixed = TRUE)[[1]]
-        res[[parts[1]]] <- parts[2]
+        key <- gsub("-", "_", parts[1])
+        res[[key]] <- parts[2]
       } else if (i + 1 <= length(args) && !grepl("^--", args[i + 1])) {
-        res[[key_val]] <- args[i + 1]
+        res[[gsub("-", "_", key_val)]] <- args[i + 1]
         i <- i + 1
       } else {
         res[[key_val]] <- TRUE
@@ -220,10 +221,7 @@ if (nchar(opt$sample_con) > 0 || nchar(opt$sample_treat) > 0) {
     sample_groups[is_control] <- "Control"
     sample_groups[is_treat] <- "Treat"
   } else {
-    # Default fallback: split first half Control, second half Treat
-    mid <- ceiling(length(samples) / 2)
-    sample_groups[1:mid] <- "Control"
-    sample_groups[(mid + 1):length(samples)] <- "Treat"
+    stop("[ERROR] Cannot infer sample groups: no --sample-con/--sample-treat given and sample names carry no group hint. Provide explicit grouping (fail-closed per contracts G-02).")
   }
 }
 

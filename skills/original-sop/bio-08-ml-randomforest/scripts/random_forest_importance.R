@@ -181,8 +181,7 @@ main <- function() {
     } else if ("MeanDecreaseGini.pval" %in% colnames(p_vals)) {
       richness_data$p_value <- p_vals[rownames(richness_data), "MeanDecreaseGini.pval"]
     } else {
-      # Compute empirical p-value if column not explicitly present
-      richness_data$p_value <- 0.02
+      stop("[GATE ERROR] rfPermute result lacks MeanDecreaseGini.pval and no valid empirical p-value source is available. Refusing fabricated p-values (contracts G-04).")
     }
   } else {
     cat("[INFO] 'rfPermute' package not available. Using standard randomForest permutation importance...\n")
@@ -208,6 +207,7 @@ main <- function() {
       perm_data$disease <- sample(perm_data$disease)
       m_perm <- randomForest::randomForest(disease ~ ., data = perm_data, ntree = 200, importance = FALSE)
       perm_imp <- randomForest::importance(m_perm, type = 2)
+      stopifnot("Permutation rownames must align with observed importance" = identical(rownames(perm_imp), rownames(imp_raw)))
       perm_gini[, p_idx] <- perm_imp[, 1]
     }
     

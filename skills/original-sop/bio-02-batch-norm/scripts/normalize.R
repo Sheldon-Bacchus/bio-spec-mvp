@@ -27,9 +27,10 @@ parse_args <- function(defaults) {
       key_val <- sub("^--", "", arg)
       if (grepl("=", key_val)) {
         parts <- strsplit(key_val, "=", fixed = TRUE)[[1]]
-        res[[parts[1]]] <- parts[2]
+        key <- gsub("-", "_", parts[1])
+        res[[key]] <- parts[2]
       } else if (i + 1 <= length(args) && !grepl("^--", args[i + 1])) {
-        res[[key_val]] <- args[i + 1]
+        res[[gsub("-", "_", key_val)]] <- args[i + 1]
         i <- i + 1
       } else {
         res[[key_val]] <- TRUE

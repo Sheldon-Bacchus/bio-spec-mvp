@@ -30,9 +30,10 @@ parse_args <- function(defaults) {
       key_val <- sub("^--", "", arg)
       if (grepl("=", key_val)) {
         parts <- strsplit(key_val, "=", fixed = TRUE)[[1]]
-        res[[parts[1]]] <- parts[2]
+        key <- gsub("-", "_", parts[1])
+        res[[key]] <- parts[2]
       } else if (i + 1 <= length(args) && !grepl("^--", args[i + 1])) {
-        res[[key_val]] <- args[i + 1]
+        res[[gsub("-", "_", key_val)]] <- args[i + 1]
         i <- i + 1
       } else {
         res[[key_val]] <- TRUE
@@ -121,6 +122,9 @@ if (is_human) {
   id_map <- bitr(gene_symbols, fromType = "SYMBOL", toType = "ENTREZID", OrgDb = org.Hs.eg.db)
   entrez_ids <- unique(id_map$ENTREZID)
   cat(sprintf("[INFO] Successfully mapped %d / %d symbols to Entrez IDs.\n", length(entrez_ids), length(gene_symbols)))
+  if (length(entrez_ids) == 0) {
+    stop("[ERROR] Zero gene symbols mapped to Entrez IDs. Check species / symbol spelling (fail loudly, not silently empty).")
+  }
   
   if (!is.null(gene_fc_vec)) {
     fc_matched <- gene_fc_vec[id_map$SYMBOL]
@@ -175,7 +179,7 @@ if (is_human) {
     go_df_all <- do.call(rbind, go_results_list)
   }
 } else {
-  cat("[WARN] Non-human organism specified. Direct enrichGO requires dedicated OrgDb. Checking KEGG enrichment...\n")
+  cat("[WARN] Non-human organism specified. GO enrichment requires a dedicated OrgDb which is not loaded; skipping GO with explicit notice (no silent gap). Checking KEGG only.\n")
 }
 
 # Export GO enrichment results table

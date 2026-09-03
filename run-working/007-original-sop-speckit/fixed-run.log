@@ -1,0 +1,117 @@
+[S01-GSEA] exit=0
+  | [INFO] Platform annotation: E:\all-agent-workspace\codex-projects\bio-skills\bio-spec-kit\spec-mvp\tests\toydata\run_fixed\GSETOY_platform.txt
+  | [INFO] Output directory: E:\all-agent-workspace\codex-projects\bio-skills\bio-spec-kit\spec-mvp\tests\toydata\run_fixed
+  | [INFO] Reading raw expression matrix...
+  | [INFO] Loaded matrix with 220 probes and 6 samples
+  | [INFO] Reading platform annotation file...
+  | [INFO] Using probe column: 'ID', symbol column: 'Gene.Symbol'
+  | [INFO] Matched 200 probes to valid gene symbols
+  | [INFO] Averaging expression for replicate gene symbols using limma::avereps...
+  | [INFO] Unique genes after replicate collapse: 200
+  | [WARN] Found 2 genes with >20% missing values. Removing prior to KNN...
+  | [INFO] Found 19 missing values (1.60%). Running impute.knn (k=10, rowmax=0.50, colmax=0.80, rng.seed=12345)...
+  | [INFO] Data appears already log2-transformed. Preserving values.
+  | [INFO] Exporting normalized expression matrix to E:\all-agent-workspace\codex-projects\bio-skills\bio-spec-kit\spec-mvp\tests\toydata\run_fixed/GSEA.normalize.txt
+  | [INFO] Exporting sample grouping to E:\all-agent-workspace\codex-projects\bio-skills\bio-spec-kit\spec-mvp\tests\toydata\run_fixed/group.txt and E:\all-agent-workspace\codex-projects\bio-skills\bio-spec-kit\spec-mvp\tests\toydata\run_fixed/PD.csv
+  | [SUCCESS] Stage 01 GEO Preprocessing complete: 198 genes across 6 samples.
+[S01-GSEB] exit=0
+  | [INFO] Platform annotation: E:\all-agent-workspace\codex-projects\bio-skills\bio-spec-kit\spec-mvp\tests\toydata\run_fixed\GSETOY_platform.txt
+  | [INFO] Output directory: E:\all-agent-workspace\codex-projects\bio-skills\bio-spec-kit\spec-mvp\tests\toydata\run_fixed
+  | [INFO] Reading raw expression matrix...
+  | [INFO] Loaded matrix with 220 probes and 4 samples
+  | [INFO] Reading platform annotation file...
+  | [INFO] Using probe column: 'ID', symbol column: 'Gene.Symbol'
+  | [INFO] Matched 200 probes to valid gene symbols
+  | [INFO] Averaging expression for replicate gene symbols using limma::avereps...
+  | [INFO] Unique genes after replicate collapse: 200
+  | [WARN] Found 16 genes with >20% missing values. Removing prior to KNN...
+  | [INFO] No missing values detected in expression matrix. Imputation skipped.
+  | [INFO] Data appears already log2-transformed. Preserving values.
+  | [INFO] Exporting normalized expression matrix to E:\all-agent-workspace\codex-projects\bio-skills\bio-spec-kit\spec-mvp\tests\toydata\run_fixed/GSEB.normalize.txt
+  | [INFO] Exporting sample grouping to E:\all-agent-workspace\codex-projects\bio-skills\bio-spec-kit\spec-mvp\tests\toydata\run_fixed/group.txt and E:\all-agent-workspace\codex-projects\bio-skills\bio-spec-kit\spec-mvp\tests\toydata\run_fixed/PD.csv
+  | [SUCCESS] Stage 01 GEO Preprocessing complete: 184 genes across 4 samples.
+[S02] exit=0
+  | [INFO] Exporting pre-normalization matrix to E:\all-agent-workspace\codex-projects\bio-skills\bio-spec-kit\spec-mvp\tests\toydata\run_fixed/merge.preNorm.txt
+  | [INFO] Loading phenotype data from E:\all-agent-workspace\codex-projects\bio-skills\bio-spec-kit\spec-mvp\tests\toydata\run_fixed\PD.csv to protect biological covariates...
+  | [WARN] Could not match all sample names with phenotype data. Proceeding without biological condition matrix.
+  | [INFO] Running sva::ComBat (par.prior = TRUE)...
+  | [INFO] Exporting ComBat normalized matrix to E:\all-agent-workspace\codex-projects\bio-skills\bio-spec-kit\spec-mvp\tests\toydata\run_fixed/merge.normalize.txt
+  | [INFO] Generating before/after boxplot comparison to E:\all-agent-workspace\codex-projects\bio-skills\bio-spec-kit\spec-mvp\tests\toydata\run_fixed/boxplot_comparison.pdf
+  | null device 
+  |           1 
+  | [SUCCESS] Stage 02 ComBat batch removal complete. Output: E:\all-agent-workspace\codex-projects\bio-skills\bio-spec-kit\spec-mvp\tests\toydata\run_fixed/merge.normalize.txt
+  | Found2batches
+  | Adjusting for0covariate(s) or covariate level(s)
+  | Standardizing Data across genes
+  | Fitting L/S model and finding priors
+  | Finding parametric adjustments
+  | Adjusting the Data
+[S02b-PCA] exit=0
+  | [INFO] Starting PCA QC Analysis on E:\all-agent-workspace\codex-projects\bio-skills\bio-spec-kit\spec-mvp\tests\toydata\run_fixed\merge.normalize.txt
+  | [INFO] Loaded expression matrix: 183 genes across 10 samples
+  | [INFO] Reading phenotype metadata from E:\all-agent-workspace\codex-projects\bio-skills\bio-spec-kit\spec-mvp\tests\toydata\run_fixed\PD_batch.csv
+  | [INFO] Computing PCA via prcomp()...
+  | [INFO] Saving 2-panel PCA QC figure to E:\all-agent-workspace\codex-projects\bio-skills\bio-spec-kit\spec-mvp\tests\toydata\run_fixed/pca_qc.pdf
+  | null device 
+  |           1 
+  | [SUCCESS] PCA QC completed successfully. File generated: E:\all-agent-workspace\codex-projects\bio-skills\bio-spec-kit\spec-mvp\tests\toydata\run_fixed/pca_qc.pdf
+[S03] exit=1
+  | [INFO] Trait file: E:\all-agent-workspace\codex-projects\bio-skills\bio-spec-kit\spec-mvp\tests\toydata\run_fixed\clinic.csv
+  | [INFO] Loaded expression matrix: 183 genes across 10 samples
+  |  Flagging genes and samples with too many missing values...
+  |   ..step 1
+  | [INFO] Selecting top 183 genes ranked by MAD...
+  | [INFO] Transposed WGCNA matrix: 10 samples, 183 genes
+  | [INFO] Calculating scale-free topology fit across power range...
+  | pickSoftThreshold: will use block size 183.
+  |  pickSoftThreshold: calculating connectivity for given powers...
+  |    ..working on genes 1 through 183 of 183
+  | Error in unserialize(node$con) : error reading from connection
+  | Calls: pickSoftThreshold ... FUN -> recvData -> recvData.SOCKnode -> unserialize
+  | Execution halted
+  | Error in serialize(data, node$con) : error writing to connection
+  | Calls: <Anonymous> ... postNode -> sendData -> sendData.SOCKnode -> serialize
+[S03b] exit=1
+  | [INFO] Starting WGCNA Module Analysis & Hub Gene Export
+  | [INFO] Loading workspace: E:\all-agent-workspace\codex-projects\bio-skills\bio-spec-kit\spec-mvp\tests\toydata\run_fixed\wgcna_net.RData
+  | Error: [ERROR] RData file not found: E:\all-agent-workspace\codex-projects\bio-skills\bio-spec-kit\spec-mvp\tests\toydata\run_fixed\wgcna_net.RData
+  | Execution halted
+[S04] exit=0
+  | [INFO] Input matrix: E:\all-agent-workspace\codex-projects\bio-skills\bio-spec-kit\spec-mvp\tests\toydata\run_fixed\merge.normalize.txt
+  | [INFO] Thresholds: |logFC| > 1.00, adj.P.Val < 0.0500
+  | [INFO] Cleaned matrix dimensions: 183 genes across 10 samples
+  | [INFO] Reading sample groupings from s1.txt and s2.txt
+  | [INFO] Reading grouping from metadata file: E:\all-agent-workspace\codex-projects\bio-skills\bio-spec-kit\spec-mvp\tests\toydata\run_fixed\PD.csv
+  | [WARN] Inferring sample groups directly from sample column names...
+  | [INFO] Partitioned samples: 5 Control, 5 Treat
+  | [INFO] Fitting linear model via lmFit (~0 + Group)...
+  | [INFO] Calculating topTable statistics with FDR correction...
+  | [INFO] Exporting full differential table to E:\all-agent-workspace\codex-projects\bio-skills\bio-spec-kit\spec-mvp\tests\toydata\run_fixed/all.txt
+  | [INFO] Exporting 44 significant DEGs to E:\all-agent-workspace\codex-projects\bio-skills\bio-spec-kit\spec-mvp\tests\toydata\run_fixed/diff.txt
+  | [INFO] Generating clustered DEG heatmap to E:\all-agent-workspace\codex-projects\bio-skills\bio-spec-kit\spec-mvp\tests\toydata\run_fixed/heatmap.pdf
+  | null device 
+  |           1 
+  | [SUCCESS] Stage 04 limma DEG analysis complete: 44 significant genes identified.
+[S04b] exit=0
+  | [INFO] Starting Volcano Plot Generation
+  | [INFO] Input file: E:\all-agent-workspace\codex-projects\bio-skills\bio-spec-kit\spec-mvp\tests\toydata\run_fixed\all.txt
+  | [INFO] Thresholds: |logFC| >= 1.00, FDR < 0.0500
+  | [INFO] Classification: 44 Upregulated, 0 Downregulated, 139 Not Significant
+  | [INFO] Exporting volcano plot to E:\all-agent-workspace\codex-projects\bio-skills\bio-spec-kit\spec-mvp\tests\toydata\run_fixed/vol.pdf
+  | null device 
+  |           1 
+  | [SUCCESS] Volcano plot generation completed: E:\all-agent-workspace\codex-projects\bio-skills\bio-spec-kit\spec-mvp\tests\toydata\run_fixed/vol.pdf
+[S06] exit=1
+  | NULL
+  | Error in read_gene_list(params$wgcna_file, params$wgcna_col, "WGCNA module genes") : 
+  |   [ERROR] Input file does not exist: E:\all-agent-workspace\codex-projects\bio-skills\bio-spec-kit\spec-mvp\tests\toydata\run_fixed\module_genes.csv (WGCNA module genes)
+  | Calls: main -> read_gene_list
+  | Execution halted
+[S07-PREP] exit=1
+  | Error in main() : 
+  |   [ERROR] Candidate gene list file not found: E:\all-agent-workspace\codex-projects\bio-skills\bio-spec-kit\spec-mvp\tests\toydata\run_fixed\candidate_hub_genes.txt
+  | Execution halted
+[S07] exit=
+[S08] exit=
+[S09] exit=
+[S10] exit=

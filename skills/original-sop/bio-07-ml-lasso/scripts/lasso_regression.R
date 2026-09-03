@@ -83,27 +83,20 @@ main <- function() {
   
   # Extract response vector y
   sample_names <- rownames(rt)
-  if (!is.null(params$group_file) && file.exists(params$group_file)) {
-    cat(sprintf("[INFO] Extracting sample labels from metadata: %s\n", params$group_file))
-    group_df <- read.csv(params$group_file, stringsAsFactors = FALSE, check.names = FALSE)
-    sample_col <- if ("sample" %in% colnames(group_df)) "sample" else colnames(group_df)[1]
-    label_col <- if ("group" %in% colnames(group_df)) "group" else colnames(group_df)[2]
-    
-    label_map <- setNames(as.character(group_df[[label_col]]), as.character(group_df[[sample_col]]))
-    y_raw <- label_map[sample_names]
-    
-    if (any(is.na(y_raw))) {
-      warning("[WARN] Some samples not matched in group file, falling back to sample name parsing.")
-      y_raw <- gsub("(.*)\\_(.*)", "\\2", sample_names)
-    }
-  } else {
-    # Extract phenotype from sample name suffix (e.g., GSE10030_biofilm1 -> biofilm, GSM123_Control -> Control)
-    cat("[INFO] Parsing group labels directly from sample names.\n")
-    y_raw <- gsub("(.*)\\_(.*)", "\\2", sample_names)
-    # If regex did not split anything, try dot or hyphen
-    if (all(y_raw == sample_names)) {
-      y_raw <- gsub("(.*)[\\.\\-](.*)", "\\2", sample_names)
-    }
+  if (is.null(params$group_file) || !file.exists(params$group_file)) {
+    stop("[GATE ERROR] --group file is REQUIRED for LASSO (contracts G-03 fail-closed: explicit metadata only). Provide sample group metadata CSV.")
+  }
+  cat(sprintf("[INFO] Extracting sample labels from metadata: %s\n", params$group_file))
+  group_df <- read.csv(params$group_file, stringsAsFactors = FALSE, check.names = FALSE)
+  sample_col <- if ("sample" %in% colnames(group_df)) "sample" else colnames(group_df)[1]
+  label_col <- if ("group" %in% colnames(group_df)) "group" else colnames(group_df)[2]
+  
+  label_map <- setNames(as.character(group_df[[label_col]]), as.character(group_df[[sample_col]]))
+  y_raw <- label_map[sample_names]
+  
+  unmatched <- sum(is.na(y_raw))
+  if (unmatched > 0) {
+    stop(sprintf("[GATE ERROR] %d samples did not match the group file (fail-closed on label mismatch). Check sample names / batch prefixes.", unmatched))
   }
   
   # Remove trailing numbers if present (e.g., biofilm1 -> biofilm, normal2 -> normal)
@@ -152,14 +145,23 @@ main <- function() {
   dev.off()
   cat(sprintf("[SUCCESS] Saved LASSO trajectory plot to: %s\n", lasso_pdf_path))
   
-  # 2. Cross-validation to find optimal lambda
-  cat(sprintf("[INFO] Performing %d-fold cross-validation with deviance metric...\n", actual_nfolds))
+  # 2. Cross-validation to find optimal lambda (stratified foldid, reproducible)
+  cat(sprintf("[INFO] Performing %d-fold stratified cross-validation with deviance metric...\n", actual_nfolds))
+  set.seed(12345)
+  foldid <- integer(nrow(x))
+  for (lv in levels(y)) {
+    idx <- which(y == lv)
+    k <- min(actual_nfolds, length(idx))
+    folds <- sample(rep(seq_len(k), length.out = length(idx)))
+    foldid[idx] <- folds
+  }
   cvfit <- cv.glmnet(
     x, y, 
     family = params$family, 
     alpha = params$alpha, 
     type.measure = "deviance", 
-    nfolds = actual_nfolds
+    nfolds = actual_nfolds,
+    foldid = foldid
   )
   
   # Plot cross-validation curve
@@ -180,15 +182,9 @@ main <- function() {
   selected_genes <- all_selected_genes[all_selected_genes != "(Intercept)"]
   selected_coefs <- coef_matrix[non_zero_indices][all_selected_genes != "(Intercept)"]
   
-  # If lambda.min yielded no genes, fallback to lambda.1se or top 3 coefficients
+  # lambda.min 无基因时禁止静默凑数（contracts G-04: report, do not fabricate）
   if (length(selected_genes) == 0) {
-    warning("[WARN] No non-zero coefficients at lambda.min. Selecting top features with largest absolute paths.")
-    all_coefs_dense <- as.matrix(coef(fit, s = min(fit$lambda)))
-    all_coefs_dense <- all_coefs_dense[rownames(all_coefs_dense) != "(Intercept)", , drop = FALSE]
-    sorted_idx <- order(abs(all_coefs_dense[, 1]), decreasing = TRUE)
-    top_n <- min(5, nrow(all_coefs_dense))
-    selected_genes <- rownames(all_coefs_dense)[sorted_idx[1:top_n]]
-    selected_coefs <- all_coefs_dense[sorted_idx[1:top_n], 1]
+    stop("[GATE ERROR] LASSO selected NO genes at lambda.min. Check feature matrix / separability. Refusing top-N fabrication (contracts G-04).")
   }
   
   # Summary table
@@ -212,7 +208,7 @@ main <- function() {
     stop("[GATE ERROR] LASSO failed to select any characteristic genes! Aborting.")
   }
   
-  # Export gene list
+  # Export gene list (lambda.min)
   out_gene_path <- file.path(params$output_dir, params$output_gene_file)
   write.table(
     selected_genes, 
@@ -222,7 +218,15 @@ main <- function() {
     row.names = FALSE, 
     col.names = FALSE
   )
-  cat(sprintf("[SUCCESS] Saved LASSO selected genes to: %s\n", out_gene_path))
+  cat(sprintf("[SUCCESS] Saved LASSO selected genes (lambda.min) to: %s\n", out_gene_path))
+
+  # Export lambda.1se gene list (contracts: dual-lambda reporting)
+  coef_1se <- coef(fit, s = cvfit$lambda.1se)
+  genes_1se <- rownames(coef_1se)[as.numeric(coef_1se) != 0]
+  genes_1se <- genes_1se[genes_1se != "(Intercept)"]
+  out_1se_path <- file.path(params$output_dir, "LASSO.gene.1se.txt")
+  write.table(genes_1se, file = out_1se_path, sep = "\t", quote = FALSE, row.names = FALSE, col.names = FALSE)
+  cat(sprintf("[SUCCESS] Saved LASSO selected genes (lambda.1se, n=%d) to: %s\n", length(genes_1se), out_1se_path))
   
   # Export full coefficient table
   out_coef_path <- file.path(params$output_dir, params$output_coef_file)

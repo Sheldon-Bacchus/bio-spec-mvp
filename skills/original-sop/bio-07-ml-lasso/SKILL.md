@@ -1,4 +1,4 @@
-﻿---
+---
 name: bio-07-ml-lasso
 description: >-
   LASSO 惩罚回归特征筛选。当用户需要从候选基因中通过 L1 正则化筛选
@@ -9,20 +9,18 @@ description: >-
 
 ## 依赖声明
 
-### MCP 服务
-- 无
-
 ### R 包
 - `glmnet`
 
 ### 输入
 - `merged_file.txt` — 候选基因表达矩阵（行=基因, 列=样本）
-- 二分类标签（从样本名解析或外部提供）
+- `--group` — 分组 metadata CSV（sample, group 列；**必传，fail-closed**）
 
 ### 输出
-- `lasso.pdf` — LASSO 回归系数路径图
-- `cvfit.pdf` — 交叉验证曲线图
-- `LASSO.gene.txt` — 筛选出的特征基因列表
+- `LASSO.gene.txt` — lambda.min 非零系数基因
+- `LASSO.gene.1se.txt` — lambda.1se 非零系数基因（双 lambda 报告）
+- `lasso_coefficients.csv` — 基因/系数表
+- `lasso.pdf` / `cvfit.pdf` — 路径图/CV 曲线
 
 ## 前置步骤
 
@@ -34,19 +32,15 @@ description: >-
 ## 执行步骤
 
 1. 运行 [lasso_regression.R](./scripts/lasso_regression.R)：
-   - `set.seed(12345)`
-   - 读取 `merged_file.txt`，转置为样本×基因矩阵
-   - 从样本名解析分组标签（如 `GSE10030_biofilm1` → `biofilm`）
+   - `set.seed(12345)`；分层 foldid（每类内划分，可复现）
    - `glmnet(x, y, family="binomial", alpha=1)` 构建模型
-   - 绘制系数路径图
-   - `cv.glmnet(..., nfolds=10)` 交叉验证
-   - 绘制交叉验证曲线
-   - 提取 `lambda.min` 对应的非零系数基因
-   - 输出 `LASSO.gene.txt`
+   - `cv.glmnet(..., foldid=分层foldid)` 交叉验证
+   - 提取 `lambda.min` 和 `lambda.1se` 非零系数基因（双列表）
+   - 输出 `LASSO.gene.txt` + `LASSO.gene.1se.txt`
+2. **分组标签必须来自 --group 文件**；缺失或样本不匹配 → 报错退出（禁止样本名正则推断）
 
 ## Gate 校验
-- `LASSO.gene.txt` 非空（至少 1 个基因）
+- `LASSO.gene.txt` 非空（至少 1 个基因）；lambda.min 空时**报错拒绝凑数**（G-04）
 
-## 参考原始脚本
-- [geoGene07.基因名与表达量匹配.R](./scripts/gene_expression_match.R)
-- [geoGene08.lasso.R](./scripts/lasso_regression.R)
+## 版本说明
+- 2026-09-03 (spec-007): 分层 foldid（F-02）；双 lambda 列表；group fail-closed（G-03）；删 top-N 凑数 fallback

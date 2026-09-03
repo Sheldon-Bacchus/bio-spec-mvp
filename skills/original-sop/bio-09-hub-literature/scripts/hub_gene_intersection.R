@@ -52,7 +52,7 @@ read_genes <- function(file_path, label) {
   # Remove quotes and whitespace
   genes <- trimws(gsub("[\"']", "", lines))
   # Remove header if present
-  header_candidates <- c("gene", "genes", "geneNames", "Symbol", "x", "V1")
+  header_candidates <- c("gene", "genes", "geneNames", "Symbol")
   if (length(genes) > 0 && genes[1] %in% header_candidates) {
     genes <- genes[-1]
   }
@@ -96,10 +96,7 @@ main <- function() {
   
   # If intersection is empty, implement graceful fallback
   if (n_intersect == 0) {
-    warning("[WARN] Intersection between LASSO and Random Forest is empty! Falling back to union or top rankers.")
-    # In emergency fallback, combine top genes from both
-    final_hub_genes <- union_genes
-    n_intersect <- length(final_hub_genes)
+    stop("[GATE ERROR] Intersection between LASSO and Random Forest is EMPTY. Refusing union fallback (contracts G-06: empty intersection requires human review).")
   }
   
   # Gate check: Final Hub genes non-empty (at least 1 gene)

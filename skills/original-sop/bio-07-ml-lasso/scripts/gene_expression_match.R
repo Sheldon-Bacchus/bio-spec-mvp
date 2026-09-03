@@ -59,15 +59,8 @@ main <- function() {
     dir.create(params$output_dir, recursive = TRUE, showWarnings = FALSE)
   }
   
-  # Handle fallback names for common variations (e.g. merge.normalzie.txt typo in legacy code)
   if (!file.exists(params$expr_file)) {
-    fallback_expr <- "merge.normalzie.txt"
-    if (file.exists(fallback_expr)) {
-      cat(sprintf("[WARN] '%s' not found, using existing fallback '%s'\n", params$expr_file, fallback_expr))
-      params$expr_file <- fallback_expr
-    } else {
-      stop(sprintf("[ERROR] Expression matrix file not found: %s", params$expr_file))
-    }
+    stop(sprintf("[ERROR] Expression matrix file not found: %s (contracts G-01: no legacy typo alias)", params$expr_file))
   }
   
   if (!file.exists(params$gene_file)) {

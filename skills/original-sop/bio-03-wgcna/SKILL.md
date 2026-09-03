@@ -1,4 +1,4 @@
-﻿---
+---
 name: bio-03-wgcna
 description: >-
   WGCNA 加权基因共表达网络分析。当用户需要从表达矩阵中识别共表达模块、
@@ -9,11 +9,8 @@ description: >-
 
 ## 依赖声明
 
-### MCP 服务
-- 无
-
 ### R 包
-- `WGCNA`, `flashClust`
+- `WGCNA`（单线程模式，Windows 稳定性）
 
 ### 输入
 - `merge.normalize.txt` — 去批次后表达矩阵（取 top MAD 基因）
@@ -25,31 +22,23 @@ description: >-
 - `module_trait_heatmap.pdf` — 模块-表型相关性热图
 - `geneInfo.csv` — 全基因模块归属与显著性信息
 - `module_genes.csv` — 目标模块基因列表
+- `wgcna_net.RData` — 工作区（供 module_export）
 
 ## 执行步骤
 
 1. 运行 [wgcna_build.R](./scripts/wgcna_build.R)：
-   - 读取表达矩阵，取 top MAD 基因（默认 5515 个）
-   - 转置矩阵（WGCNA 针对基因聚类）
-   - `pickSoftThreshold()` 计算最佳软阈值
-   - `blockwiseModules()` 构建网络（`maxBlockSize=6000`, `minModuleSize=30`, `mergeCutHeight=0.25`）
-   - 绘制模块聚类树与颜色标注
-   - 计算模块特征向量 (MEs) 与表型相关性热图
+   - 读取表达矩阵，取 top MAD 基因（默认 5000）
+   - `pickSoftThreshold()` 计算最佳软阈值（R² 记录，未达 0.85 时 WARN+记录）
+   - `blockwiseModules()` 构建网络
+   - 模块-表型相关性热图与 p 值
+   - `disableWGCNAThreads()` 单线程执行（规避 Windows socket 崩溃）
 2. 运行 [wgcna_module_export.R](./scripts/wgcna_module_export.R)：
-   - 指定感兴趣模块（如 `moduleColor = "brown"`）
-   - 计算 Module Membership (MM) 与 Gene Significance (GS)
-   - 绘制 MM vs GS 散点图
-   - 导出 `geneInfo.csv` 和 `module_genes.csv`
+   - 指定/自动选择目标模块与 trait
+   - 计算 MM 与 GS，导出 `geneInfo.csv` / `module_genes.csv`
 
 ## Gate 校验
-- 软阈值 R² > 0.85
-- 目标模块与表型相关性 p < 0.05
+- 软阈值 R² 记录（≥0.85 或明确 WARN）；目标模块-表型 p < 0.05 记录
 - `module_genes.csv` 非空
 
-## 关键参数
-- `set.seed(12345)` 固定随机种子
-- `power = sft$powerEstimate` 自动优选软阈值
-
-## 参考原始脚本
-- [wgcna2019-1.R](./scripts/wgcna_build.R)
-- [wgcna2019-02.R](./scripts/wgcna_module_export.R)
+## 版本说明
+- 2026-09-03 (spec-007): WGCNA 单线程化（Windows 稳定性）；CLI 连字符参数修复

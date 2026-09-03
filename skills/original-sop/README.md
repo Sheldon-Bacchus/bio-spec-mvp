@@ -1,32 +1,35 @@
-# Original SOP source Skills
+# Original SOP Source Skills（spec-007 修复版）
 
-本目录保留远端并入的 11 个原版生信 SOP 来源组件。每个组件遵循
-`SKILL.md + references/ + scripts/` 的来源结构，供后续逐项审查、补齐输入
-/输出契约和 verifier；它们当前不是 generic `research-control` 的固定步骤，
-也没有自动注册到当前 `skill-catalog.yml` 或 `.agents/skills/`。
+本目录保留远端并入的 11 个原版生信 SOP 组件的 **修复版**（2026-09-03 spec-007 契约修复 + toy-data 验证通过）。
 
-## 来源组件清单
+## 修复摘要（P0/P1）
 
-| Skill | 主要职责 | 当前来源状态 |
-|---|---|---|
-| `bio-01-geo-dataprep` | GEO 数据下载与预处理 | source-only |
-| `bio-02-batch-norm` | 归一化、ComBat/SVA 与 PCA QC | source-only |
-| `bio-03-wgcna` | WGCNA 共表达网络与模块提取 | source-only |
-| `bio-04-deg-limma` | limma 差异表达与图形输出 | source-only |
-| `bio-05-enrichment` | GO/KEGG 富集 | source-only |
-| `bio-06-gene-intersection` | 基因集交集与候选 Hub 集合 | source-only |
-| `bio-07-ml-lasso` | LASSO 特征筛选 | source-only |
-| `bio-08-ml-randomforest` | 随机森林重要性分析 | source-only |
-| `bio-09-hub-literature` | Hub 基因与文献证据挖掘 | source-only |
-| `bio-10-biomarker-roc` | ROC/AUC 诊断验证 | source-only |
-| `bio-pipeline-orchestrator` | SOP 级 DAG 编排来源 | source-only |
+| Skill | 修复内容 |
+|---|---|
+| `bio-01-geo-dataprep` | 分组 fail-closed（G-02，禁 half-split 静默推断）；CLI 连字符参数修复（F-01） |
+| `bio-02-batch-norm` | CLI 连字符参数修复（--input-files/--pd 生效） |
+| `bio-03-wgcna` | WGCNA 单线程化（Windows socket 崩溃规避）；CLI 参数修复 |
+| `bio-04-deg-limma` | CLI 参数修复；分组推断降级审计（inferred_groups.csv） |
+| `bio-05-enrichment` | bitr 0 映射 fail-loud；pae GO 显式说明；enrichplot 参数适配 |
+| `bio-06-gene-intersection` | 依赖一致化 |
+| `bio-07-ml-lasso` | 分层 foldid（F-02）；双 lambda 列表；group fail-closed（G-03）；删 top-N 凑数 |
+| `bio-08-ml-randomforest` | 删假 p=0.02（G-04）；置换 rownames 对齐；group fail-closed |
+| `bio-09-hub-literature` | 删并集 fallback（G-06 空交集人工评审）；header 黑名单修正 |
+| `bio-10-biomarker-roc` | 联合模型 k-fold OOF（G-04，禁 in-sample AUC）；Type 标记 Combined(OOF) |
+| `bio-pipeline-orchestrator` | Stage1/5 gate 修复；依赖清单修正；删 typo alias；I/O 契约化 |
 
-## 目录边界
+## 验证状态
 
-这里是 Skill 来源层，不是运行目录。`bio-pipeline-orchestrator` 的存在不等于
-本项目批准了一条固定的全流程，也不替代某个 feature 的 `spec.md`、`plan.md`
-和 `tasks.md`。只有在完成逐项 contract、依赖/权限检查、runtime projection
-和可复核测试后，具体 feature 才可以选择其中的能力。
+- **R 语法检查**: 16/16 脚本通过
+- **toy-data 全链复跑**（S01→S10）: 通过（S09 空交集按契约触发人工评审路径，记录后放行）
+- **fail-closed 实测**: LASSO 无 --group → GATE ERROR；hub 空交集 → GATE ERROR；连字符 flag 生效
 
-原始脚本、引用材料和 Skill 名称均保留；本次目录重构只修正了它们的归属位置
-和本 README 的边界说明，没有把它们接入 generic workflow。
+## 原版归档
+
+原版 v0 备份: `E:\all-agent-workspace\codex-projects\bio-skills\_archive\original-sop-v0-20260903`（仓库外，非提交物）
+
+## 契约与基准
+
+- 统一 I/O 契约: `run-working/007-original-sop-speckit/contracts.md`
+- 审查报告: `run-working/007-original-sop-speckit/audit-report.md`
+- 基线报告: `run-working/007-original-sop-speckit/toydata-baseline-report.md`

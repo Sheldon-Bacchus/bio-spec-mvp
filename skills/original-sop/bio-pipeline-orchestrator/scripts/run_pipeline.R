@@ -96,9 +96,10 @@ check_prerequisites <- function(log_file, dry_run = FALSE) {
   
   # 2. Required R Packages
   required_pkgs <- c(
-    "glmnet", "randomForest", "pROC", "ggplot2", "VennDiagram"
+    "glmnet", "randomForest", "pROC", "ggplot2", "VennDiagram",
+    "limma", "sva", "WGCNA", "impute", "Biobase", "clusterProfiler"
   )
-  optional_pkgs <- c("rfPermute", "limma", "sva", "WGCNA", "clusterProfiler", "UpSetR")
+  optional_pkgs <- c("rfPermute", "enrichplot", "org.Hs.eg.db", "pathview", "UpSetR", "pheatmap", "ggrepel", "gridExtra", "flashClust", "DOSE", "GO.db")
   
   missing_required <- c()
   for (pkg in required_pkgs) {
@@ -133,13 +134,11 @@ get_stage_definitions <- function(skills_dir) {
       name = "GEO Data Download & Probe Mapping",
       script = file.path(skills_dir, "bio-01-geo-dataprep", "scripts", "geo_preprocess.R"),
       inputs = c(),
-      outputs = c("expression_matrix.txt", "sample_group.csv"),
+      outputs = c("{gse_id}.normalize.txt", "PD.csv"),
       gate_check = function(work_dir) {
-        has_expr <- file.exists(file.path(work_dir, "expression_matrix.txt")) || 
-                    file.exists(file.path(work_dir, "merge.normalzie.txt"))
-        has_grp <- file.exists(file.path(work_dir, "sample_group.csv")) ||
-                    file.exists(file.path(work_dir, "clinic.csv"))
-        list(passed = has_expr && has_grp, detail = "Expression matrix and group metadata exist.")
+        has_expr <- any(grepl("[.]normalize[.]txt$", list.files(work_dir)))
+        has_grp <- file.exists(file.path(work_dir, "PD.csv")) || file.exists(file.path(work_dir, "group.txt"))
+        list(passed = has_expr && has_grp, detail = "Normalized expression matrix (*.normalize.txt) and group metadata (PD.csv/group.txt) exist.")
       }
     ),
     list(
@@ -147,13 +146,11 @@ get_stage_definitions <- function(skills_dir) {
       id = "bio-02-batch-norm",
       name = "Normalization & Batch Correction (SVA/ComBat)",
       script = file.path(skills_dir, "bio-02-batch-norm", "scripts", "sva_combat.R"),
-      inputs = c("expression_matrix.txt"),
+      inputs = c("{gse_id}.normalize.txt"),
       outputs = c("merge.normalize.txt"),
       gate_check = function(work_dir) {
-        f1 <- file.path(work_dir, "merge.normalize.txt")
-        f2 <- file.path(work_dir, "merge.normalzie.txt")
-        exists <- file.exists(f1) || file.exists(f2)
-        list(passed = exists, detail = "Normalized and batch-corrected matrix generated.")
+        f <- file.path(work_dir, "merge.normalize.txt")
+        list(passed = file.exists(f), detail = "Normalized and batch-corrected matrix generated (merge.normalize.txt).")
       }
     ),
     list(
@@ -188,8 +185,11 @@ get_stage_definitions <- function(skills_dir) {
       inputs = c("diff.txt"),
       outputs = c("go_enrichment.csv"),
       gate_check = function(work_dir) {
-        f <- file.path(work_dir, "go_enrichment.csv")
-        list(passed = TRUE, detail = "Enrichment outputs generated or skipped.")
+        f1 <- file.path(work_dir, "GO_enrichment.csv")
+        f2 <- file.path(work_dir, "KEGG_enrichment.csv")
+        ok1 <- file.exists(f1) && file.info(f1)$size > 0
+        ok2 <- file.exists(f2) && file.info(f2)$size > 0
+        list(passed = ok1 || ok2, detail = "GO_enrichment.csv / KEGG_enrichment.csv non-empty (at least one required).")
       }
     ),
     list(
@@ -301,11 +301,7 @@ main <- function() {
       f_target <- file.path(params$project_dir, inp)
       # Check alternate names
       if (!file.exists(f_target)) {
-        if (inp == "merge.normalize.txt" && file.exists(file.path(params$project_dir, "merge.normalzie.txt"))) {
-          # Typo alias accepted
-        } else {
-          missing_inputs <- c(missing_inputs, inp)
-        }
+        missing_inputs <- c(missing_inputs, inp)
       }
     }
     
