@@ -1,0 +1,416 @@
+=== BASELINE RUN 2026-09-03T20:43:46 ===
+[S01-GSEA] exit=0
+  | [INFO] Starting GEO Preprocessing for GSEA
+  | [INFO] Input matrix: E:\all-agent-workspace\codex-projects\bio-skills\bio-spec-kit\spec-mvp\tests\toydata\run_baseline\GSEA_probe_exprs.txt
+  | [INFO] Platform annotation: E:\all-agent-workspace\codex-projects\bio-skills\bio-spec-kit\spec-mvp\tests\toydata\run_baseline\GSETOY_platform.txt
+  | [INFO] Output directory: E:\all-agent-workspace\codex-projects\bio-skills\bio-spec-kit\spec-mvp\tests\toydata\run_baseline
+  | [INFO] Reading raw expression matrix...
+  | [INFO] Loaded matrix with 220 probes and 6 samples
+  | [INFO] Reading platform annotation file...
+  | [INFO] Using probe column: 'ID', symbol column: 'Gene.Symbol'
+  | [INFO] Matched 200 probes to valid gene symbols
+  | [INFO] Averaging expression for replicate gene symbols using limma::avereps...
+  | [INFO] Unique genes after replicate collapse: 200
+  | [WARN] Found 2 genes with >20% missing values. Removing prior to KNN...
+  | [INFO] Found 19 missing values (1.60%). Running impute.knn (k=10, rowmax=0.50, colmax=0.80, rng.seed=12345)...
+  | [INFO] Data appears already log2-transformed. Preserving values.
+  | [INFO] Exporting normalized expression matrix to E:\all-agent-workspace\codex-projects\bio-skills\bio-spec-kit\spec-mvp\tests\toydata\run_baseline/GSEA.normalize.txt
+  | [INFO] Exporting sample grouping to E:\all-agent-workspace\codex-projects\bio-skills\bio-spec-kit\spec-mvp\tests\toydata\run_baseline/group.txt and E:\all-agent-workspace\codex-projects\bio-skills\bio-spec-kit\spec-mvp\tests\toydata\run_baseline/PD.csv
+  | [SUCCESS] Stage 01 GEO Preprocessing complete: 198 genes across 6 samples.
+[S01-GSEB] exit=0
+  | [INFO] Starting GEO Preprocessing for GSEB
+  | [INFO] Input matrix: E:\all-agent-workspace\codex-projects\bio-skills\bio-spec-kit\spec-mvp\tests\toydata\run_baseline\GSEB_probe_exprs.txt
+  | [INFO] Platform annotation: E:\all-agent-workspace\codex-projects\bio-skills\bio-spec-kit\spec-mvp\tests\toydata\run_baseline\GSETOY_platform.txt
+  | [INFO] Output directory: E:\all-agent-workspace\codex-projects\bio-skills\bio-spec-kit\spec-mvp\tests\toydata\run_baseline
+  | [INFO] Reading raw expression matrix...
+  | [INFO] Loaded matrix with 220 probes and 4 samples
+  | [INFO] Reading platform annotation file...
+  | [INFO] Using probe column: 'ID', symbol column: 'Gene.Symbol'
+  | [INFO] Matched 200 probes to valid gene symbols
+  | [INFO] Averaging expression for replicate gene symbols using limma::avereps...
+  | [INFO] Unique genes after replicate collapse: 200
+  | [WARN] Found 16 genes with >20% missing values. Removing prior to KNN...
+  | [INFO] No missing values detected in expression matrix. Imputation skipped.
+  | [INFO] Data appears already log2-transformed. Preserving values.
+  | [INFO] Exporting normalized expression matrix to E:\all-agent-workspace\codex-projects\bio-skills\bio-spec-kit\spec-mvp\tests\toydata\run_baseline/GSEB.normalize.txt
+  | [INFO] Exporting sample grouping to E:\all-agent-workspace\codex-projects\bio-skills\bio-spec-kit\spec-mvp\tests\toydata\run_baseline/group.txt and E:\all-agent-workspace\codex-projects\bio-skills\bio-spec-kit\spec-mvp\tests\toydata\run_baseline/PD.csv
+  | [SUCCESS] Stage 01 GEO Preprocessing complete: 184 genes across 4 samples.
+[S02] exit=0
+  | [INFO] Starting ComBat Batch Effect Removal Pipeline
+  | [INFO] Processing 2 dataset files:
+  |   - GSEA.normalize.txt
+  |   - GSEB.normalize.txt
+  | [INFO] Found 183 common genes intersected across all 2 datasets.
+  | [INFO] Combined matrix dimensions: 183 genes across 10 samples
+  | [INFO] Batch composition:
+  | batch_vec
+  | GSEA GSEB 
+  |    6    4 
+  | [INFO] Exporting pre-normalization matrix to E:\all-agent-workspace\codex-projects\bio-skills\bio-spec-kit\spec-mvp\tests\toydata\run_baseline/merge.preNorm.txt
+  | [INFO] Loading phenotype data from E:\all-agent-workspace\codex-projects\bio-skills\bio-spec-kit\spec-mvp\tests\toydata\run_baseline\PD.csv to protect biological covariates...
+  | [WARN] Could not match all sample names with phenotype data. Proceeding without biological condition matrix.
+  | [INFO] Running sva::ComBat (par.prior = TRUE)...
+  | [INFO] Exporting ComBat normalized matrix to E:\all-agent-workspace\codex-projects\bio-skills\bio-spec-kit\spec-mvp\tests\toydata\run_baseline/merge.normalize.txt
+  | [INFO] Generating before/after boxplot comparison to E:\all-agent-workspace\codex-projects\bio-skills\bio-spec-kit\spec-mvp\tests\toydata\run_baseline/boxplot_comparison.pdf
+  | null device 
+  |           1 
+  | [SUCCESS] Stage 02 ComBat batch removal complete. Output: E:\all-agent-workspace\codex-projects\bio-skills\bio-spec-kit\spec-mvp\tests\toydata\run_baseline/merge.normalize.txt
+  | Found2batches
+  | Adjusting for0covariate(s) or covariate level(s)
+  | Standardizing Data across genes
+  | Fitting L/S model and finding priors
+  | Finding parametric adjustments
+  | Adjusting the Data
+[S02b-PCA] exit=0
+  | [INFO] Starting PCA QC Analysis on E:\all-agent-workspace\codex-projects\bio-skills\bio-spec-kit\spec-mvp\tests\toydata\run_baseline\merge.normalize.txt
+  | [INFO] Loaded expression matrix: 183 genes across 10 samples
+  | [INFO] Reading phenotype metadata from E:\all-agent-workspace\codex-projects\bio-skills\bio-spec-kit\spec-mvp\tests\toydata\run_baseline\PD_batch.csv
+  | [INFO] Computing PCA via prcomp()...
+  | [INFO] Saving 2-panel PCA QC figure to E:\all-agent-workspace\codex-projects\bio-skills\bio-spec-kit\spec-mvp\tests\toydata\run_baseline/pca_qc.pdf
+  | null device 
+  |           1 
+  | [SUCCESS] PCA QC completed successfully. File generated: E:\all-agent-workspace\codex-projects\bio-skills\bio-spec-kit\spec-mvp\tests\toydata\run_baseline/pca_qc.pdf
+=== BASELINE_PASS2_END ===
+[S03-WGCNA] exit=0
+  |  ..Working on block 1 .
+  |     TOM calculation: adjacency..
+  |     ..will not use multithreading.
+  |      Fraction of slow calculations: 0.000000
+  |     ..connectivity..
+  |     ..matrix multiplication (system BLAS)..
+  |     ..normalization..
+  |     ..done.
+  |  ....clustering..
+  |  ....detecting modules..
+  |  ....calculating module eigengenes..
+  |  ....checking kME in modules..
+  |  ..merging modules that are too close..
+  |      mergeCloseModules: Merging modules whose distance is less than 0.25
+  |      mergeCloseModules: less than two proper modules.
+  |       ..color levels are 0, 1
+  |       ..there is nothing to merge.
+  |        Calculating new MEs...
+  | [INFO] Identified module distribution (numeric):
+  | 
+  |   0   1 
+  | 126  57 
+  | [INFO] Identified module distribution (colors):
+  | moduleColors
+  |      grey turquoise 
+  |       126        57 
+  | [INFO] Exporting module dendrogram to E:\all-agent-workspace\codex-projects\bio-skills\bio-spec-kit\spec-mvp\tests\toydata\run_baseline/moduleDendrogram.pdf
+  | null device 
+  |           1 
+  | [INFO] Calculating Module Eigengenes (MEs) and trait correlations...
+  | [INFO] Exporting module-trait correlation heatmap to E:\all-agent-workspace\codex-projects\bio-skills\bio-spec-kit\spec-mvp\tests\toydata\run_baseline/module_trait_heatmap.pdf
+  | null device 
+  |           1 
+  | [INFO] Saving WGCNA workspace to E:\all-agent-workspace\codex-projects\bio-skills\bio-spec-kit\spec-mvp\tests\toydata\run_baseline/wgcna_net.RData
+  | [SUCCESS] Stage 03 WGCNA network construction completed successfully.
+[S03b-EXPORT] exit=0
+  | [INFO] Starting WGCNA Module Analysis & Hub Gene Export
+  | [INFO] Loading workspace: E:\all-agent-workspace\codex-projects\bio-skills\bio-spec-kit\spec-mvp\tests\toydata\run_baseline\wgcna_net.RData
+  | [INFO] Target clinical trait: 'score'
+  | [INFO] Computing Gene Module Membership (MM) across all modules...
+  | [INFO] Computing Gene Significance (GS) for target trait...
+  | [INFO] Automatically identified top-correlated module: 'turquoise' (cor = 0.731)
+  | [INFO] Generating MM vs GS scatterplot to E:\all-agent-workspace\codex-projects\bio-skills\bio-spec-kit\spec-mvp\tests\toydata\run_baseline/MM_vs_GS_turquoise.pdf
+  | null device 
+  |           1 
+  | [INFO] Assembling global geneInfo table...
+  | [INFO] Exporting geneInfo table to E:\all-agent-workspace\codex-projects\bio-skills\bio-spec-kit\spec-mvp\tests\toydata\run_baseline/geneInfo.csv
+  | [INFO] Exporting 57 genes for module 'turquoise' to E:\all-agent-workspace\codex-projects\bio-skills\bio-spec-kit\spec-mvp\tests\toydata\run_baseline/module_genes.csv
+  | [SUCCESS] Stage 03 Module Export complete. Found 57 total genes, 46 meeting hub criteria (|MM|>=0.80, |GS|>=0.20).
+[S04-LIMMA] exit=0
+  | [INFO] Starting limma Differential Expression Analysis
+  | [INFO] Input matrix: E:\all-agent-workspace\codex-projects\bio-skills\bio-spec-kit\spec-mvp\tests\toydata\run_baseline\merge.normalize.txt
+  | [INFO] Thresholds: |logFC| > 1.00, adj.P.Val < 0.0500
+  | [INFO] Cleaned matrix dimensions: 183 genes across 10 samples
+  | [INFO] Reading sample groupings from s1.txt and s2.txt
+  | [INFO] Reading grouping from metadata file: E:\all-agent-workspace\codex-projects\bio-skills\bio-spec-kit\spec-mvp\tests\toydata\run_baseline\PD.csv
+  | [WARN] Inferring sample groups directly from sample column names...
+  | [INFO] Partitioned samples: 5 Control, 5 Treat
+  | [INFO] Fitting linear model via lmFit (~0 + Group)...
+  | [INFO] Calculating topTable statistics with FDR correction...
+  | [INFO] Exporting full differential table to E:\all-agent-workspace\codex-projects\bio-skills\bio-spec-kit\spec-mvp\tests\toydata\run_baseline/all.txt
+  | [INFO] Exporting 44 significant DEGs to E:\all-agent-workspace\codex-projects\bio-skills\bio-spec-kit\spec-mvp\tests\toydata\run_baseline/diff.txt
+  | [INFO] Generating clustered DEG heatmap to E:\all-agent-workspace\codex-projects\bio-skills\bio-spec-kit\spec-mvp\tests\toydata\run_baseline/heatmap.pdf
+  | null device 
+  |           1 
+  | [SUCCESS] Stage 04 limma DEG analysis complete: 44 significant genes identified.
+[S04b-VOL] exit=0
+  | [INFO] Starting Volcano Plot Generation
+  | [INFO] Input file: E:\all-agent-workspace\codex-projects\bio-skills\bio-spec-kit\spec-mvp\tests\toydata\run_baseline\all.txt
+  | [INFO] Thresholds: |logFC| >= 1.00, FDR < 0.0500
+  | [INFO] Classification: 44 Upregulated, 0 Downregulated, 139 Not Significant
+  | [INFO] Exporting volcano plot to E:\all-agent-workspace\codex-projects\bio-skills\bio-spec-kit\spec-mvp\tests\toydata\run_baseline/vol.pdf
+  | null device 
+  |           1 
+  | [SUCCESS] Volcano plot generation completed: E:\all-agent-workspace\codex-projects\bio-skills\bio-spec-kit\spec-mvp\tests\toydata\run_baseline/vol.pdf
+[S05-ENR] exit=1
+  | 
+  | The following object is masked from 'package:clusterProfiler':
+  | 
+  |     rename
+  | 
+  | The following object is masked from 'package:utils':
+  | 
+  |     findMatches
+  | 
+  | The following objects are masked from 'package:base':
+  | 
+  |     expand.grid, I, unname
+  | 
+  | 
+  | Attaching package: 'IRanges'
+  | 
+  | The following object is masked from 'package:clusterProfiler':
+  | 
+  |     slice
+  | 
+  | The following object is masked from 'package:grDevices':
+  | 
+  |     windows
+  | 
+  | 
+  | Attaching package: 'AnnotationDbi'
+  | 
+  | The following object is masked from 'package:clusterProfiler':
+  | 
+  |     select
+  | 
+  | Error in .testForValidKeys(x, keys, keytype, fks) : 
+  |   None of the keys entered are valid keys for 'SYMBOL'. Please use the keys method to see a listing of valid arguments.
+  | Calls: bitr
+  | Execution halted
+=== BASELINE_PASS3_END ===
+[S06-VENN] exit=0
+  | NULL
+  | [INFO] Reading WGCNA module genes from: E:\all-agent-workspace\codex-projects\bio-skills\bio-spec-kit\spec-mvp\tests\toydata\run_baseline\module_genes.csv
+  | [INFO] Extracted 57 unique genes from WGCNA module genes
+  | [INFO] Reading limma DEG genes from: E:\all-agent-workspace\codex-projects\bio-skills\bio-spec-kit\spec-mvp\tests\toydata\run_baseline\diff.txt
+  | [INFO] Extracted 44 unique genes from limma DEG genes
+  | ========================================================
+  | WGCNA Module Genes:       57
+  | Limma DEG Genes:          44
+  | Intersection (Candidate): 44
+  | ========================================================
+  | [SUCCESS] Saved candidate hub genes to: E:\all-agent-workspace\codex-projects\bio-skills\bio-spec-kit\spec-mvp\tests\toydata\run_baseline/candidate_hub_genes.txt
+  | [SUCCESS] Saved Venn diagram to: E:\all-agent-workspace\codex-projects\bio-skills\bio-spec-kit\spec-mvp\tests\toydata\run_baseline/venn_plot.pdf
+  | 
+  | Top Candidate Hub Genes:
+  |  [1] "g035" "g008" "g004" "g022" "g018" "g001" "g024" "g027" "g025" "g021"
+  | [11] "g015" "g040" "g049" "g014" "g012" "g048" "g016" "g039" "g043" "g003"
+  | 
+  | [STAGE COMPLETE] bio-06-gene-intersection finished successfully.
+[S07-PREP] exit=0
+  | [INFO] Loading expression matrix: E:\all-agent-workspace\codex-projects\bio-skills\bio-spec-kit\spec-mvp\tests\toydata\run_baseline\merge.normalize.txt
+  | [INFO] Loading candidate genes: E:\all-agent-workspace\codex-projects\bio-skills\bio-spec-kit\spec-mvp\tests\toydata\run_baseline\candidate_hub_genes.txt
+  | [INFO] Parsed 43 target candidate genes.
+  | ========================================================
+  | Requested Candidate Genes: 43
+  | Matched Genes in Matrix:   43
+  | Sample Columns Available:  10
+  | ========================================================
+  | [SUCCESS] Saved matched expression matrix to: E:\all-agent-workspace\codex-projects\bio-skills\bio-spec-kit\spec-mvp\tests\toydata\run_baseline/merged_file.txt
+  | [SUCCESS] Saved matched expression matrix to: E:\all-agent-workspace\codex-projects\bio-skills\bio-spec-kit\spec-mvp\tests\toydata\run_baseline/merged_data.csv
+  | [STAGE COMPLETE] Gene expression matching finished successfully.
+[S07-LASSO] exit=1
+  | [INFO] Reading merged candidate expression: E:\all-agent-workspace\codex-projects\bio-skills\bio-spec-kit\spec-mvp\tests\toydata\run_baseline\merged_file.txt
+  | [INFO] Matrix transposed: 10 samples, 43 candidate genes.
+  | [INFO] Extracting sample labels from metadata: E:\all-agent-workspace\codex-projects\bio-skills\bio-spec-kit\spec-mvp\tests\toydata\run_baseline\PD.csv
+  | [INFO] Class label distribution:
+  | y
+  |    
+  | 10 
+  | Error in main() : 
+  |   [ERROR] Expected at least 2 distinct classes in response, but found: 
+  | In addition: Warning message:
+  | In main() :
+  |   [WARN] Some samples not matched in group file, falling back to sample name parsing.
+  | Execution halted
+[S08-RF] exit=1
+  | [INFO] Reading candidate gene expression: E:\all-agent-workspace\codex-projects\bio-skills\bio-spec-kit\spec-mvp\tests\toydata\run_baseline\merged_file.txt
+  | [INFO] Loading phenotype labels from: E:\all-agent-workspace\codex-projects\bio-skills\bio-spec-kit\spec-mvp\tests\toydata\run_baseline\PD.csv
+  | [INFO] Training dataset constructed: 10 samples, 43 genes.
+  | [INFO] Phenotype breakdown:
+  | 
+  |    
+  | 10 
+  | [INFO] Executing rfPermute with 500 trees and 299 permutation iterations...
+  | [WARN] rfPermute multi-threaded call failed: Need at least two classes to do classification.. Retrying with num.cores=1...
+  | Error in randomForest.default(x = list(g001 = c(0.012270187221485, 0.0857204542458154,  : 
+  |   Need at least two classes to do classification.
+  | Calls: main ... eval -> eval -> randomForest -> randomForest.default
+  | Execution halted
+[S09-HUB] exit=1
+  | Error in read_genes(params$lasso_file, "LASSO") : 
+  |   [ERROR] LASSO file not found: E:\all-agent-workspace\codex-projects\bio-skills\bio-spec-kit\spec-mvp\tests\toydata\run_baseline\LASSO.gene.txt
+  | Calls: main -> read_genes
+  | Execution halted
+[S10-ROC] exit=1
+  | Error in main() : 
+  |   [ERROR] Hub genes file not found: E:\all-agent-workspace\codex-projects\bio-skills\bio-spec-kit\spec-mvp\tests\toydata\run_baseline\final_hub_genes.txt
+  | Execution halted
+=== BASELINE_PASS4_END ===
+[S07-LASSOv2] exit=1
+  | [INFO] Reading merged candidate expression: E:\all-agent-workspace\codex-projects\bio-skills\bio-spec-kit\spec-mvp\tests\toydata\run_baseline\merged_file.txt
+  | [INFO] Matrix transposed: 10 samples, 43 candidate genes.
+  | [INFO] Extracting sample labels from metadata: E:\all-agent-workspace\codex-projects\bio-skills\bio-spec-kit\spec-mvp\tests\toydata\run_baseline\PD_merged.csv
+  | [INFO] Class label distribution:
+  | y
+  |    
+  | 10 
+  | Error in main() : 
+  |   [ERROR] Expected at least 2 distinct classes in response, but found: 
+  | In addition: Warning message:
+  | In main() :
+  |   [WARN] Some samples not matched in group file, falling back to sample name parsing.
+  | Execution halted
+[S08-RFv2] exit=1
+  | [INFO] Reading candidate gene expression: E:\all-agent-workspace\codex-projects\bio-skills\bio-spec-kit\spec-mvp\tests\toydata\run_baseline\merged_file.txt
+  | [INFO] Loading phenotype labels from: E:\all-agent-workspace\codex-projects\bio-skills\bio-spec-kit\spec-mvp\tests\toydata\run_baseline\PD_merged.csv
+  | [INFO] Training dataset constructed: 10 samples, 43 genes.
+  | [INFO] Phenotype breakdown:
+  | 
+  |    
+  | 10 
+  | [INFO] Executing rfPermute with 500 trees and 299 permutation iterations...
+  | [WARN] rfPermute multi-threaded call failed: Need at least two classes to do classification.. Retrying with num.cores=1...
+  | Error in randomForest.default(x = list(g001 = c(0.012270187221485, 0.0857204542458154,  : 
+  |   Need at least two classes to do classification.
+  | Calls: main ... eval -> eval -> randomForest -> randomForest.default
+  | Execution halted
+[S09-HUBv2] exit=1
+  | Error in read_genes(params$lasso_file, "LASSO") : 
+  |   [ERROR] LASSO file not found: E:\all-agent-workspace\codex-projects\bio-skills\bio-spec-kit\spec-mvp\tests\toydata\run_baseline\LASSO.gene.txt
+  | Calls: main -> read_genes
+  | Execution halted
+[S10-ROCv2] exit=1
+  | Error in main() : 
+  |   [ERROR] Hub genes file not found: E:\all-agent-workspace\codex-projects\bio-skills\bio-spec-kit\spec-mvp\tests\toydata\run_baseline\final_hub_genes.txt
+  | Execution halted
+=== BASELINE_PASS5_END ===
+[S07-LASSOv2] exit=0
+  | [INFO] Performing 5-fold cross-validation with deviance metric...
+  | [SUCCESS] Saved cross-validation plot to: E:\all-agent-workspace\codex-projects\bio-skills\bio-spec-kit\spec-mvp\tests\toydata\run_baseline/cvfit.pdf
+  | ========================================================
+  | Optimal Lambda (min):    0.004902
+  | Lambda (1se):            0.007112
+  | Features Selected:       8
+  | ========================================================
+  |   Gene Coefficient
+  | 1 g001  2.57563447
+  | 5 g011  1.25700197
+  | 8 g036  1.04237369
+  | 2 g002  0.88789918
+  | 6 g033  0.71509968
+  | 4 g009  0.34489937
+  | 7 g034  0.14910388
+  | 3 g005  0.01630064
+  | [SUCCESS] Saved LASSO selected genes to: E:\all-agent-workspace\codex-projects\bio-skills\bio-spec-kit\spec-mvp\tests\toydata\run_baseline/LASSO.gene.txt
+  | [SUCCESS] Saved coefficient details to: E:\all-agent-workspace\codex-projects\bio-skills\bio-spec-kit\spec-mvp\tests\toydata\run_baseline/lasso_coefficients.csv
+  | [STAGE COMPLETE] bio-07-ml-lasso completed successfully.
+  | Warning messages:
+  | 1: In lognet(x, is.sparse, y, weights, offset, alpha, nobs, nvars,  :
+  |   one multinomial or binomial class has fewer than 8  observations; dangerous ground
+  | 2: In lognet(x, is.sparse, y, weights, offset, alpha, nobs, nvars,  :
+  |   one multinomial or binomial class has fewer than 8  observations; dangerous ground
+  | 3: In lognet(x, is.sparse, y, weights, offset, alpha, nobs, nvars,  :
+  |   one multinomial or binomial class has fewer than 8  observations; dangerous ground
+  | 4: In lognet(x, is.sparse, y, weights, offset, alpha, nobs, nvars,  :
+  |   one multinomial or binomial class has fewer than 8  observations; dangerous ground
+  | 5: In lognet(x, is.sparse, y, weights, offset, alpha, nobs, nvars,  :
+  |   one multinomial or binomial class has fewer than 8  observations; dangerous ground
+  | 6: In lognet(x, is.sparse, y, weights, offset, alpha, nobs, nvars,  :
+  |   one multinomial or binomial class has fewer than 8  observations; dangerous ground
+  | 7: In lognet(x, is.sparse, y, weights, offset, alpha, nobs, nvars,  :
+  |   one multinomial or binomial class has fewer than 8  observations; dangerous ground
+  | 8: Option grouped=FALSE enforced in cv.glmnet, since < 3 observations per fold
+[S08-RFv2] exit=0
+  | [INFO] Reading candidate gene expression: E:\all-agent-workspace\codex-projects\bio-skills\bio-spec-kit\spec-mvp\tests\toydata\run_baseline\merged_file.txt
+  | [INFO] Loading phenotype labels from: E:\all-agent-workspace\codex-projects\bio-skills\bio-spec-kit\spec-mvp\tests\toydata\run_baseline\PD_merged.csv
+  | [INFO] Training dataset constructed: 10 samples, 43 genes.
+  | [INFO] Phenotype breakdown:
+  | 
+  | control   treat 
+  |       5       5 
+  | [INFO] Executing rfPermute with 500 trees and 299 permutation iterations...
+  | [SUCCESS] Exported variable importance table to: E:\all-agent-workspace\codex-projects\bio-skills\bio-spec-kit\spec-mvp\tests\toydata\run_baseline/richness.txt
+  | [SUCCESS] Exported 1 significant RF genes to: E:\all-agent-workspace\codex-projects\bio-skills\bio-spec-kit\spec-mvp\tests\toydata\run_baseline/rf_genes.txt
+  | [SUCCESS] Saved variable importance plot to: E:\all-agent-workspace\codex-projects\bio-skills\bio-spec-kit\spec-mvp\tests\toydata\run_baseline/rf_importance.pdf
+  | ========================================================
+  | Total Evaluated Genes: 43
+  | Selected RF Genes:     1 (p < 0.05)
+  | Top Genes:
+  | [1] "g039"
+  | ========================================================
+  | [STAGE COMPLETE] bio-08-ml-randomforest completed successfully.
+[S09-HUBv2] exit=0
+  | [INFO] LASSO contains 8 features.
+  | [INFO] Random Forest contains 1 features.
+  | 
+  | ========================================================
+  |          DUAL-ALGORITHM HUB INTERSECTION REPORT         
+  | ========================================================
+  | LASSO Selected Features:         8
+  | Random Forest Selected Features: 1
+  | Dual-Algorithm Consensus Hubs:   0
+  | Total Union Feature Pool:        9
+  | Jaccard Similarity Index:        0.000
+  | --------------------------------------------------------
+  | Consensus Hub Gene List:
+  |   [01] g001
+  |   [02] g002
+  |   [03] g005
+  |   [04] g009
+  |   [05] g011
+  |   [06] g033
+  |   [07] g034
+  |   [08] g036
+  |   [09] g039
+  | ========================================================
+  | 
+  | [SUCCESS] Saved 9 final hub genes to: E:\all-agent-workspace\codex-projects\bio-skills\bio-spec-kit\spec-mvp\tests\toydata\run_baseline/final_hub_genes.txt
+  | [SUCCESS] Saved summary metrics to: E:\all-agent-workspace\codex-projects\bio-skills\bio-spec-kit\spec-mvp\tests\toydata\run_baseline/hub_intersection_summary.txt
+  | [STAGE COMPLETE] bio-09-hub-literature hub intersection finished successfully.
+  | Warning message:
+  | In main() :
+  |   [WARN] Intersection between LASSO and Random Forest is empty! Falling back to union or top rankers.
+[S10-ROCv2] exit=0
+  | 2            1 0.8055
+  | 3            1 0.6944
+  | 4            1 0.6607
+  | 5            1 0.7754
+  | 6            1 0.9324
+  | 7            1 0.4827
+  | 8            1 0.6928
+  | 9            1 0.8074
+  | 10           1 0.5000
+  | ========================================================
+  | [SUCCESS] Saved individual ROC curves to: E:\all-agent-workspace\codex-projects\bio-skills\bio-spec-kit\spec-mvp\tests\toydata\run_baseline/roc_single_gene.pdf
+  | [SUCCESS] Saved combined ROC curve to: E:\all-agent-workspace\codex-projects\bio-skills\bio-spec-kit\spec-mvp\tests\toydata\run_baseline/roc_combined.pdf
+  | [GATE PASS] AUC criteria met! Max Single AUC = 1.000, Combined AUC = 1.000
+  | [STAGE COMPLETE] bio-10-biomarker-roc completed successfully.
+  | Warning messages:
+  | 1: In ci.auc.roc(roc, ...) :
+  |   ci.auc() of a ROC curve with AUC == 1 is always 1-1 and can be misleading.
+  | 2: In ci.auc.roc(roc, ...) :
+  |   ci.auc() of a ROC curve with AUC == 1 is always 1-1 and can be misleading.
+  | 3: In ci.auc.roc(roc, ...) :
+  |   ci.auc() of a ROC curve with AUC == 1 is always 1-1 and can be misleading.
+  | 4: In ci.auc.roc(roc, ...) :
+  |   ci.auc() of a ROC curve with AUC == 1 is always 1-1 and can be misleading.
+  | 5: In ci.auc.roc(roc, ...) :
+  |   ci.auc() of a ROC curve with AUC == 1 is always 1-1 and can be misleading.
+  | 6: In ci.auc.roc(roc, ...) :
+  |   ci.auc() of a ROC curve with AUC == 1 is always 1-1 and can be misleading.
+  | 7: In ci.auc.roc(roc, ...) :
+  |   ci.auc() of a ROC curve with AUC == 1 is always 1-1 and can be misleading.
+  | 8: In ci.auc.roc(roc, ...) :
+  |   ci.auc() of a ROC curve with AUC == 1 is always 1-1 and can be misleading.
+  | 9: In ci.auc.roc(roc, ...) :
+  |   ci.auc() of a ROC curve with AUC == 1 is always 1-1 and can be misleading.
+  | 10: In ci.auc.roc(roc, ...) :
+  |   ci.auc() of a ROC curve with AUC == 1 is always 1-1 and can be misleading.
+=== BASELINE_PASS5_END ===

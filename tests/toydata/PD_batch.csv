@@ -1,0 +1,11 @@
+sample,group,batch
+control_1,control,GSEA
+control_2,control,GSEA
+control_3,control,GSEA
+treat_1,treat,GSEA
+treat_2,treat,GSEA
+treat_3,treat,GSEA
+control_4,control,GSEB
+control_5,control,GSEB
+treat_4,treat,GSEB
+treat_5,treat,GSEB
