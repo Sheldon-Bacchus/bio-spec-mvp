@@ -1,9 +1,16 @@
-# Runtime specs
+# run-working
 
-这是 Spec Kit 生成新 feature 的标准目录。运行 `$speckit-specify` 后，新规格
-会按 `specs/NNN-short-name/` 创建，并由 `.specify/feature.json` 在当前机器
-上记录活动 feature。
+Agent 本地运行工作区（run-working）：存放 agent 在为仓库完善 skills 的过程中
+产生的临时工作产物（审计、基线、补丁、验证日志等）。**不包含需要长期维护的
+正式 spec**——正式 feature 契约仍由仓库根目录的 Spec Kit 结构管理。
 
-`archive/005-work-package/` 是随项目提供的既有 005 工作包和审查证据；它保留
-工作包原结构，不自动伪装成一个新生成的 `specs/NNN-*` feature。需要继续
-处理它时，请按根目录 README 显式设置 `SPECIFY_FEATURE_DIRECTORY`。
+当前内容：
+
+- `007-original-sop-speckit/` — original-sop 11 个 skills 的完善工作区：
+  - 契约表 `contracts.md`、审查报告 `audit-report.md`、plan/tasks
+  - toy-data 基线报告 `toydata-baseline-report.md`
+  - 修复补丁脚本 `apply_fixes*.py`、语法检查 `syntax_check_all.R`、
+    修复验证 `verify_fixes.ps1`、全链复跑日志 `fixed-run*.log`
+
+> 说明：此处为本机 agent 运行产生的临时工作区，git mv 自原 `specs/` 目录
+> （001/002 等本地跑的项目已移除，不上传公开仓库）。
