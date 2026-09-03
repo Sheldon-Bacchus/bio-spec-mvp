@@ -1,4 +1,4 @@
-# GEO 数据下载与预处理指南 (GEO Download & Preprocessing Guide)
+﻿# GEO 数据下载与预处理指南 (GEO Download & Preprocessing Guide)
 
 ## 1. GEO 数据架构与核心对象
 

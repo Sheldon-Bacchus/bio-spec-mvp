@@ -1,4 +1,4 @@
-# End-to-End Bioinformatics Pipeline DAG & Data Contract Architecture
+﻿# End-to-End Bioinformatics Pipeline DAG & Data Contract Architecture
 
 ## 1. Global Directed Acyclic Graph (DAG) Topology
 

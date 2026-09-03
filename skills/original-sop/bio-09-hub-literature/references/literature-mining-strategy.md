@@ -1,4 +1,4 @@
-# Scientific Literature Mining & Evidence Synthesis Strategy
+﻿# Scientific Literature Mining & Evidence Synthesis Strategy
 
 ## 1. Multi-MCP Architecture for Evidence Verification
 

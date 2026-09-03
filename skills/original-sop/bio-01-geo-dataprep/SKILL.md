@@ -1,4 +1,4 @@
----
+﻿---
 name: bio-01-geo-dataprep
 description: >-
   GEO 芯片数据下载与预处理。当用户需要从 GEO 数据库获取基因表达芯片数据（如 GSE10030）、

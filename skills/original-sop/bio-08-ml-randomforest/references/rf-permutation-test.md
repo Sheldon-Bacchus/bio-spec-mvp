@@ -1,4 +1,4 @@
-# Random Forest Variable Importance & Permutation Testing Guide
+﻿# Random Forest Variable Importance & Permutation Testing Guide
 
 ## 1. Principles of Random Forest in High-Dimensional Bioinformatics
 

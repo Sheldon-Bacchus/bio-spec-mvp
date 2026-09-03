@@ -1,4 +1,4 @@
-# ROC Curve Principles & AUC Clinical Interpretation Guide
+﻿# ROC Curve Principles & AUC Clinical Interpretation Guide
 
 ## 1. Mathematical Foundations of ROC Analysis
 
