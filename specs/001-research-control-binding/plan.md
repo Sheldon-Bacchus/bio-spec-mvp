@@ -76,7 +76,7 @@ Planning uses this sequence:
 
 1. Read the feature's question, inputs, outputs, and acceptance boundary.
 2. Identify capability needs without naming a tool prematurely.
-3. Search `02-skills/skill-catalog.yml` and the authoritative Skill entry for
+3. Search `skills/skill-catalog.yml` and the authoritative Skill entry for
    candidates; reference-only material cannot become an executable `skill_id`.
 4. Record candidates, selection reason, phase/label, inputs, outputs, verifier,
    failure policy, and provenance in `plan.md`.
@@ -116,38 +116,38 @@ specs/[###-feature]/
 ```text
 .specify/                         # official Spec Kit runtime and registries
 .agents/skills/speckit-*          # official Codex-compatible control Skills
-02-skills/                        # Skill sources, references, catalog, archives
-03-package-sources/preset/        # generic research-control preset source
-03-package-sources/workflow/      # generic research-control workflow source
-03-package-sources/extensions/    # independently scoped domain Extensions
+skills/                        # Skill sources, references, catalog, archives
+control/preset/        # generic research-control preset source
+control/workflow/      # generic research-control workflow source
+extensions/    # independently scoped domain Extensions
 suites/                           # concise human command map
 specs/                            # official feature artifact directories
-01-spec-work-package/             # historical/reference work package
-tests/fixtures/multiqc/           # domain fixture, not generic workflow input
+archive/005-work-package/             # historical/reference work package
+examples/bio-multiqc/fixtures/           # domain fixture, not generic workflow input
 ```
 
 **Structure Decision**: Keep the existing Spec Kit project layout. Generic
-template/policy sources stay under `03-package-sources/preset`; workflow source
-stays under `03-package-sources/workflow`; domain Skills and Extensions remain
+template/policy sources stay under `control/preset`; workflow source
+stays under `control/workflow`; domain Skills and Extensions remain
 separate. Installed copies under `.specify` are updated through the official
 CLI, while `specs/001-research-control-binding/` holds this feature's design
 artifacts. The historical work package is not rewritten by this feature.
 
 ### Planned source changes
 
-- `03-package-sources/preset/preset.yml`: rename the generic package to
+- `control/preset/preset.yml`: rename the generic package to
   `research-control` and remove concrete component bindings.
-- `03-package-sources/preset/contracts/research-core-profile.yml`: retain only
+- `control/preset/contracts/research-core-profile.yml`: retain only
   ownership/boundary semantics; remove component-specific entries.
-- `03-package-sources/preset/templates/plan-template.md`: add plan-level
+- `control/preset/templates/plan-template.md`: add plan-level
   capability discovery and binding fields.
-- `03-package-sources/preset/templates/tasks-template.md`: add task-level
+- `control/preset/templates/tasks-template.md`: add task-level
   frozen binding fields while retaining checklist-compatible task syntax.
-- `03-package-sources/workflow/workflow.yml`: make the workflow generic and
+- `control/workflow/workflow.yml`: make the workflow generic and
   control-only; remove MultiQC inputs, shell calls, and release-verdict steps.
-- `02-skills/skill-catalog.yml`: index callable adapters separately from
+- `skills/skill-catalog.yml`: index callable adapters separately from
   reference-only material.
-- `03-package-sources/suite-registry.yml` and `suites/README.md`: classify six
+- `control/command-registry.yml` and `control/command-map.md`: classify six
   core and three optional QC commands without claiming a universal official
   nine-stage taxonomy.
 - Root/package documentation and installed registries: identify

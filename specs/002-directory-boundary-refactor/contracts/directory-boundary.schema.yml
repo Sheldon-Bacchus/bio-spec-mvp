@@ -1,0 +1,88 @@
+$schema: "https://json-schema.org/draft/2020-12/schema"
+$id: "https://example.invalid/bio-spec-005/directory-boundary.schema.yml"
+title: Repository directory boundary contract
+type: object
+required:
+  - root_runtime
+  - ownership_directories
+  - forbidden_runtime_directories
+  - migration_map
+properties:
+  root_runtime:
+    type: array
+    const:
+      - .specify
+      - .agents
+      - specs
+  ownership_directories:
+    type: object
+    required:
+      - control
+      - skills
+      - extensions
+      - examples
+      - archive
+    properties:
+      control:
+        type: array
+        const:
+          - control/preset
+          - control/workflow
+          - control/command-registry.yml
+          - control/command-map.md
+          - control/README.md
+      skills:
+        type: array
+        const:
+          - skills/adapters
+          - skills/reference-stack
+          - skills/runtime-projection
+          - skills/archives
+          - skills/skill-catalog.yml
+          - skills/MANIFEST.md
+          - skills/README.md
+      extensions:
+        type: array
+        const:
+          - extensions/bio-multiqc
+          - extensions/bio-review
+      examples:
+        type: array
+        const:
+          - examples/bio-multiqc/fixtures
+          - examples/bio-multiqc/requirements.txt
+      archive:
+        type: array
+        const:
+          - archive/005-work-package
+  forbidden_runtime_directories:
+    type: array
+    const:
+      - review
+      - score
+      - repair
+      - experiments
+      - 01-spec-work-package
+      - 02-skills
+      - 03-package-sources
+  migration_map:
+    type: array
+    minItems: 10
+    items:
+      type: object
+      required:
+        - from
+        - to
+        - owner
+      properties:
+        from:
+          type: string
+        to:
+          type: string
+        owner:
+          enum:
+            - archive
+            - skill
+            - control
+            - extension
+            - example

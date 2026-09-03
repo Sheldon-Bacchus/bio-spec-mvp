@@ -19,22 +19,22 @@ Expected: all three commands return `True`.
 
 ```powershell
 rg -n "multiqc|fastqc|tests/fixtures|\.bio/runs|component_contract_bindings|skill_path" `
-  .\03-package-sources\preset\preset.yml `
-  .\03-package-sources\preset\contracts `
-  .\03-package-sources\preset\templates `
-  .\03-package-sources\workflow\workflow.yml
+  .\control\preset\preset.yml `
+  .\control\preset\contracts `
+  .\control\preset\templates `
+  .\control\workflow\workflow.yml
 ```
 
 Expected: no output. Concrete domain references may remain under the separate
-extension source and historical `01-spec-work-package`, not the generic files
+extension source and historical `archive/005-work-package`, not the generic files
 listed above.
 
 ## 3. Verify the binding fields
 
 ```powershell
 rg -n "capability_id|candidate_skill_ids|skill_id|preset_id|selection_reason|inputs|outputs|verifier|failure_policy|failure_behavior|provenance" `
-  .\03-package-sources\preset\templates\plan-template.md `
-  .\03-package-sources\preset\templates\tasks-template.md `
+  .\control\preset\templates\plan-template.md `
+  .\control\preset\templates\tasks-template.md `
   .\specs\001-research-control-binding\contracts
 ```
 
@@ -45,7 +45,7 @@ template or its contract.
 
 ```powershell
 rg -n "core|optional_quality_control|constitution|specify|plan|tasks|implement|converge|clarify|checklist|analyze" `
-  .\03-package-sources\suite-registry.yml .\suites\README.md
+  .\control\command-registry.yml .\control\command-map.md
 ```
 
 Expected: six entries are `core`, three entries are
@@ -70,15 +70,15 @@ not required workflow inputs.
 
 ```powershell
 $generic = @(
-  '.\03-package-sources\preset\preset.yml',
-  '.\03-package-sources\preset\contracts',
-  '.\03-package-sources\preset\templates',
-  '.\03-package-sources\workflow\workflow.yml',
+  '.\control\preset\preset.yml',
+  '.\control\preset\contracts',
+  '.\control\preset\templates',
+  '.\control\workflow\workflow.yml',
   '.\.specify\presets\research-control\preset.yml',
   '.\.specify\presets\research-control\contracts',
   '.\.specify\presets\research-control\templates',
   '.\.specify\workflows\research-control\workflow.yml',
-  '.\03-package-sources\suite-registry.yml'
+  '.\control\command-registry.yml'
 )
 $generic += @(
   '.\.agents\skills\speckit-constitution',

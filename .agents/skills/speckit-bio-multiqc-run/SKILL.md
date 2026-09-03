@@ -35,7 +35,7 @@ For the clean vertical slice, use a fresh output directory and the explicit
 fixture preset:
 
     python .specify/extensions/bio-multiqc/scripts/run_multiqc.py
-      --input tests/fixtures/multiqc
+      --input examples/bio-multiqc/fixtures
       --output .bio/runs/current/multiqc
       --config .specify/extensions/bio-multiqc/config/multiqc_config.yaml
       --multiqc-bin .venv/Scripts/multiqc.exe

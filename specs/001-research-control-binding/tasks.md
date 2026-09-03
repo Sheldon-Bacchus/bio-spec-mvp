@@ -34,12 +34,12 @@ artifact conventions before changing runtime sources.
 **Purpose**: Establish generic source contracts before installing or documenting
 the corrected runtime.
 
-- [x] T004 Remove concrete `component_contract_bindings` and project-specific Skill references from `03-package-sources/preset/preset.yml`; set the generic preset identity to `research-control` and verify the manifest contains only reusable templates/policies.
-- [x] T005 Update `03-package-sources/preset/contracts/research-core-profile.yml` so it defines generic ownership boundaries without `multiqc`, `bulk-pa-luad`, dataset paths, or concrete component bindings; verify with a bounded `rg` scan.
-- [x] T006 Add explicit capability discovery and selection fields to `03-package-sources/preset/templates/plan-template.md`: `capability_id`, candidate/selected `skill_id`, `preset_id`, selection reason, phase/label, inputs, outputs, verifier, failure policy, and provenance.
-- [x] T007 Add an executable-task binding section to `03-package-sources/preset/templates/tasks-template.md` with `task_id`, `phase`, `skill_id`, `preset_id`, inputs, outputs, dependencies, verifier, acceptance, failure behavior, and provenance while retaining the official checklist format.
-- [x] T008 Add `02-skills/skill-catalog.yml` as a lookup index for the five callable adapter Skills; mark reference-stack material as non-executable reference data and do not create a fixed execution sequence.
-- [x] T009 Replace the concrete MultiQC steps and inputs in `03-package-sources/workflow/workflow.yml` with a generic `research-control` control workflow that invokes the feature lifecycle only; do not add domain execution, compression, score, repair, or experiment steps.
+- [x] T004 Remove concrete `component_contract_bindings` and project-specific Skill references from `control/preset/preset.yml`; set the generic preset identity to `research-control` and verify the manifest contains only reusable templates/policies.
+- [x] T005 Update `control/preset/contracts/research-core-profile.yml` so it defines generic ownership boundaries without `multiqc`, `bulk-pa-luad`, dataset paths, or concrete component bindings; verify with a bounded `rg` scan.
+- [x] T006 Add explicit capability discovery and selection fields to `control/preset/templates/plan-template.md`: `capability_id`, candidate/selected `skill_id`, `preset_id`, selection reason, phase/label, inputs, outputs, verifier, failure policy, and provenance.
+- [x] T007 Add an executable-task binding section to `control/preset/templates/tasks-template.md` with `task_id`, `phase`, `skill_id`, `preset_id`, inputs, outputs, dependencies, verifier, acceptance, failure behavior, and provenance while retaining the official checklist format.
+- [x] T008 Add `skills/skill-catalog.yml` as a lookup index for the five callable adapter Skills; mark reference-stack material as non-executable reference data and do not create a fixed execution sequence.
+- [x] T009 Replace the concrete MultiQC steps and inputs in `control/workflow/workflow.yml` with a generic `research-control` control workflow that invokes the feature lifecycle only; do not add domain execution, compression, score, repair, or experiment steps.
 
 ## Phase 3: User Story 1 - Create a domain-independent research feature (Priority: P1) 🎯 MVP
 
@@ -51,9 +51,9 @@ canonical Spec Kit artifact lifecycle.
 the control-only workflow; neither source or installed manifest requires a
 MultiQC/project input.
 
-- [x] T010 [US1] Remove the installed legacy `bio-research-mvp` preset using the official `specify preset remove` command, install `03-package-sources/preset` with `specify preset add --dev`, and verify `specify preset list` and `specify preset resolve spec-template`; evidence: `.specify/presets/.registry`.
-- [x] T011 [US1] Remove the installed legacy `bio-research-mvp` workflow using the official `specify workflow remove` command, install `03-package-sources/workflow/workflow.yml` with `specify workflow add --dev`, and verify `specify workflow list` and `specify workflow resolve research-control`; evidence: `.specify/workflows/workflow-registry.json`.
-- [x] T012 [US1] Update `README.md`, `03-package-sources/README.md`, and `requirements.txt` to describe `research-control` as generic, MultiQC as an independently scoped optional Extension, and the old `bio-research-mvp` vertical slice as historical/reference context only.
+- [x] T010 [US1] Remove the installed legacy `bio-research-mvp` preset using the official `specify preset remove` command, install `control/preset` with `specify preset add --dev`, and verify `specify preset list` and `specify preset resolve spec-template`; evidence: `.specify/presets/.registry`.
+- [x] T011 [US1] Remove the installed legacy `bio-research-mvp` workflow using the official `specify workflow remove` command, install `control/workflow/workflow.yml` with `specify workflow add --dev`, and verify `specify workflow list` and `specify workflow resolve research-control`; evidence: `.specify/workflows/workflow-registry.json`.
+- [x] T012 [US1] Update `README.md`, `control/README.md`, and `examples/bio-multiqc/requirements.txt` to describe `research-control` as generic, MultiQC as an independently scoped optional Extension, and the old `bio-research-mvp` vertical slice as historical/reference context only.
 - [x] T013 [US1] Scan generic preset/workflow source and installed copies for `multiqc_input`, `multiqc_output`, `multiqc_config`, `fastqc`, `tests/fixtures`, `.bio/runs`, and `component_contract_bindings`; acceptance: zero hits in generic files; evidence: command output from `quickstart.md` step 2.
 
 ## Phase 4: User Story 2 - Select and freeze a capability binding (Priority: P1)
@@ -65,9 +65,9 @@ tasks can freeze an explicit implementation handoff.
 feature contracts; every required binding field is represented structurally and
 an unresolved candidate has an explicit blocked/failure path.
 
-- [x] T014 [US2] Align `02-skills/skill-catalog.yml` entries with the frontmatter and contract sections of `.agents/skills/bulk-pa-luad/SKILL.md`, `.agents/skills/cross-branch-integration/SKILL.md`, `.agents/skills/multiqc/SKILL.md`, `.agents/skills/pathway-enrichment/SKILL.md`, and `.agents/skills/wgcna-module-constraint/SKILL.md`; acceptance: each entry has capability hints, inputs, outputs, contract path, and executable/reference classification.
-- [x] T015 [US2] Update the plan binding guidance in `03-package-sources/preset/templates/plan-template.md` to require catalog lookup, selection rationale, and explicit `unresolved`/`blocked` status when no complete contract exists; evidence: template diff and `contracts/capability-binding.schema.yml`.
-- [x] T016 [US2] Update the tasks binding guidance in `03-package-sources/preset/templates/tasks-template.md` to require a trace from each executable task to a selected capability and to preserve failures; evidence: template diff and `contracts/task-binding.schema.yml`.
+- [x] T014 [US2] Align `skills/skill-catalog.yml` entries with the frontmatter and contract sections of `.agents/skills/bulk-pa-luad/SKILL.md`, `.agents/skills/cross-branch-integration/SKILL.md`, `.agents/skills/multiqc/SKILL.md`, `.agents/skills/pathway-enrichment/SKILL.md`, and `.agents/skills/wgcna-module-constraint/SKILL.md`; acceptance: each entry has capability hints, inputs, outputs, contract path, and executable/reference classification.
+- [x] T015 [US2] Update the plan binding guidance in `control/preset/templates/plan-template.md` to require catalog lookup, selection rationale, and explicit `unresolved`/`blocked` status when no complete contract exists; evidence: template diff and `contracts/capability-binding.schema.yml`.
+- [x] T016 [US2] Update the tasks binding guidance in `control/preset/templates/tasks-template.md` to require a trace from each executable task to a selected capability and to preserve failures; evidence: template diff and `contracts/task-binding.schema.yml`.
 - [x] T017 [US2] Run the binding-field scan from `specs/001-research-control-binding/quickstart.md` and inspect `specs/001-research-control-binding/data-model.md`; acceptance: no required field is represented only by an unstructured prose placeholder.
 
 ## Phase 5: User Story 3 - Extend without contaminating the control plane (Priority: P2)
@@ -79,8 +79,8 @@ boundaries while the generic lifecycle remains domain-neutral.
 installed Extensions, while the generic preset/workflow source contains no
 domain-specific execution parameters or shell call.
 
-- [x] T018 [P] [US3] Update `02-skills/MANIFEST.md` and `02-skills/README.md` to point planners to `skill-catalog.yml`, distinguish five callable adapters from eight reference-only components, and state that neither group is an automatic workflow sequence.
-- [x] T019 [P] [US3] Update `03-package-sources/extensions/bio-multiqc/extension.yml`, `03-package-sources/extensions/bio-review/extension.yml`, or their documentation only as needed to state their independent inputs/outputs/failure boundaries; do not add either Extension to the generic workflow.
+- [x] T018 [P] [US3] Update `skills/MANIFEST.md` and `skills/README.md` to point planners to `skill-catalog.yml`, distinguish five callable adapters from eight reference-only components, and state that neither group is an automatic workflow sequence.
+- [x] T019 [P] [US3] Update `extensions/bio-multiqc/extension.yml`, `extensions/bio-review/extension.yml`, or their documentation only as needed to state their independent inputs/outputs/failure boundaries; do not add either Extension to the generic workflow.
 - [x] T020 [US3] Verify the existing `bio-multiqc` and `bio-review` Extensions remain independently installed/resolvable after the generic preset/workflow migration; acceptance: the extension registry is unchanged except for intentional source/version metadata.
 
 ## Phase 6: User Story 4 - Navigate the six-plus-three command map (Priority: P2)
@@ -92,8 +92,8 @@ classification as an official universal Spec Kit taxonomy.
 `core`, exactly three are `optional_quality_control`, and every entry points to
 the canonical `speckit-*` command/Skill.
 
-- [x] T021 [P] [US4] Correct `03-package-sources/suite-registry.yml` to use stable `spec-*`, `plan-*`, `implement-*`, and `review-*` navigation IDs with explicit `role` values: six core commands (`constitution`, `specify`, `plan`, `tasks`, `implement`, `converge`) and three optional QC commands (`clarify`, `checklist`, `analyze`); state that this is not a universal official nine-stage taxonomy.
-- [x] T022 [P] [US4] Rewrite `suites/README.md` as the concise human map for the same six-plus-three classification, retaining canonical `speckit-*` names and explaining that `spec.md`, `plan.md`, and `tasks.md` remain the only feature artifact names.
+- [x] T021 [P] [US4] Correct `control/command-registry.yml` to use stable `spec-*`, `plan-*`, `implement-*`, and `review-*` navigation IDs with explicit `role` values: six core commands (`constitution`, `specify`, `plan`, `tasks`, `implement`, `converge`) and three optional QC commands (`clarify`, `checklist`, `analyze`); state that this is not a universal official nine-stage taxonomy.
+- [x] T022 [P] [US4] Rewrite `control/command-map.md` as the concise human map for the same six-plus-three classification, retaining canonical `speckit-*` names and explaining that `spec.md`, `plan.md`, and `tasks.md` remain the only feature artifact names.
 - [x] T023 [US4] Update the command, package, and runtime sections of `README.md` to link the corrected map and distinguish official control Skills, generic preset/workflow, domain Skills, reference material, and independently installed Extensions.
 
 ## Phase 7: Polish and convergence
@@ -101,7 +101,7 @@ the canonical `speckit-*` command/Skill.
 **Purpose**: Validate the complete change and leave no untracked convergence
 gap before handoff.
 
-- [x] T024 [P] Run YAML/JSON parse checks for `03-package-sources/preset/preset.yml`, `03-package-sources/preset/contracts/research-core-profile.yml`, `03-package-sources/workflow/workflow.yml`, `02-skills/skill-catalog.yml`, `03-package-sources/suite-registry.yml`, `.specify/presets/.registry`, and `.specify/workflows/workflow-registry.json`; preserve failures and fix malformed files.
+- [x] T024 [P] Run YAML/JSON parse checks for `control/preset/preset.yml`, `control/preset/contracts/research-core-profile.yml`, `control/workflow/workflow.yml`, `skills/skill-catalog.yml`, `control/command-registry.yml`, `.specify/presets/.registry`, and `.specify/workflows/workflow-registry.json`; preserve failures and fix malformed files.
 - [x] T025 Run every command in `specs/001-research-control-binding/quickstart.md`; acceptance: generic resolution, binding-field, six-plus-three, and no-pollution checks pass without running a domain dataset.
 - [x] T026 Run `.specify/scripts/powershell/check-prerequisites.ps1 -Json -RequireTasks -IncludeTasks` for `specs/001-research-control-binding`, review `spec.md`, `plan.md`, and `tasks.md` against the constitution, and record any remaining gap for the official `speckit-converge` pass.
 - [x] T027 Run the official convergence assessment against this feature after all implementation tasks are complete; if it appends a remaining task, implement and re-run convergence until the feature is clean; evidence: final task state and convergence output.

@@ -30,7 +30,7 @@
 ## Decision 3: Use an inventory for discovery, not a fixed workflow
 
 - **Decision**: Add a small machine-readable candidate index under
-  `02-skills/skill-catalog.yml`. It distinguishes callable adapter Skills from
+  `skills/skill-catalog.yml`. It distinguishes callable adapter Skills from
   reference-only material and records paths, capability hints, inputs, outputs,
   and fail-closed cues. The plan template instructs the planner to search this
   index and then read the selected Skill's contract.

@@ -13,9 +13,9 @@
       "name": "Research Control Workflow",
       "version": "0.2.0",
       "description": "Run the generic Spec Kit feature lifecycle; domain execution is selected explicitly by plan/task bindings.",
-      "source": "03-package-sources\\workflow\\workflow.yml",
-      "installed_at": "2026-09-03T01:17:31.580209+00:00",
-      "updated_at": "2026-09-03T01:19:03.692194+00:00"
+      "source": "control\\workflow\\workflow.yml",
+      "installed_at": "2026-09-03T01:53:08.832654+00:00",
+      "updated_at": "2026-09-03T01:53:08.832672+00:00"
     }
   }
 }

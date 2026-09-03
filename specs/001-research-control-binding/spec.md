@@ -147,5 +147,5 @@ As a reviewer or maintainer, I want one concise command map that distinguishes t
 - `research-pre`, `research-process`, and `research-post` remain optional user/project labels and are not standardized here.
 - The inconsistent existing `bio-*` naming is intentionally left unchanged.
 - Review, score, repair, compression, and data-level experiment workflows will be designed as separate facilities in later features and are not imported into this project runtime.
-- The historical `01-spec-work-package` remains available as reference material; this feature does not rewrite its scientific work package.
+- The historical `archive/005-work-package` remains available as reference material; this feature does not rewrite its scientific work package.
 - Real public datasets, Hugging Face execution, biological validity, performance benchmarking, and production release testing are non-goals for this architecture feature.

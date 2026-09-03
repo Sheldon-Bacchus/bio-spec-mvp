@@ -26,5 +26,5 @@
 ## Scope discipline
 
 - [x] CHK-015 The feature does not require real biological data or claim biological validity.
-- [x] CHK-016 The historical `01-spec-work-package` is preserved rather than silently rewritten.
+- [x] CHK-016 The historical `archive/005-work-package` is preserved rather than silently rewritten.
 - [x] CHK-017 No requirement introduces a second canonical name for `spec.md`, `plan.md`, or `tasks.md`.
