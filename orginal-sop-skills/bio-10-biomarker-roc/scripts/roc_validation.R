@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env Rscript
+#!/usr/bin/env Rscript
 # ==============================================================================
 # roc_validation.R - Diagnostic Biomarker ROC & AUC Performance Evaluation
 # ==============================================================================

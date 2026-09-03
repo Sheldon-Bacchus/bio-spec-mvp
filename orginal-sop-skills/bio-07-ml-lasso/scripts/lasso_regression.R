@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env Rscript
+#!/usr/bin/env Rscript
 # ==============================================================================
 # lasso_regression.R - LASSO Penalized Logistic Regression Feature Selection
 # ==============================================================================

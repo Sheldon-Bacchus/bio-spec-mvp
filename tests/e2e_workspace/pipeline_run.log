@@ -1,0 +1,51 @@
+[2026-09-03 10:07:21] [INFO] Target Project Directory: E:/all-agent-workspace/bio-skills/tests/e2e_workspace
+[2026-09-03 10:07:21] [INFO] Skills Root Directory:    E:/all-agent-workspace/bio-skills/orginal-sop-skills
+[2026-09-03 10:07:21] [INFO] Execution Range:          Stage 01 -> Stage 10
+[2026-09-03 10:07:21] [INFO] Dry Run Mode:             ENABLED
+[2026-09-03 10:07:21] [INFO] Checking environment prerequisites...
+[2026-09-03 10:07:21] [INFO] R Version detected: 4.6.1 (x86_64-w64-mingw32)
+[2026-09-03 10:07:21] [ERROR] Missing required R packages: glmnet, randomForest, pROC, ggplot2, VennDiagram
+[2026-09-03 10:07:52] [INFO] Target Project Directory: E:/all-agent-workspace/bio-skills/tests/e2e_workspace
+[2026-09-03 10:07:52] [INFO] Skills Root Directory:    E:/all-agent-workspace/bio-skills/orginal-sop-skills
+[2026-09-03 10:07:52] [INFO] Execution Range:          Stage 01 -> Stage 10
+[2026-09-03 10:07:52] [INFO] Dry Run Mode:             ENABLED
+[2026-09-03 10:07:52] [INFO] Checking environment prerequisites...
+[2026-09-03 10:07:52] [INFO] R Version detected: 4.6.1 (x86_64-w64-mingw32)
+[2026-09-03 10:07:52] [WARN] Dry-Run mode: missing packages (will be needed for live computation): glmnet, randomForest, pROC, ggplot2, VennDiagram
+[2026-09-03 10:07:52] [INFO] Optional package 'rfPermute': Not installed (fallback mode will be used)
+[2026-09-03 10:07:52] [INFO] Optional package 'limma': Not installed (fallback mode will be used)
+[2026-09-03 10:07:52] [INFO] Optional package 'sva': Not installed (fallback mode will be used)
+[2026-09-03 10:07:52] [INFO] Optional package 'WGCNA': Not installed (fallback mode will be used)
+[2026-09-03 10:07:52] [INFO] Optional package 'clusterProfiler': Not installed (fallback mode will be used)
+[2026-09-03 10:07:52] [INFO] Optional package 'UpSetR': Not installed (fallback mode will be used)
+[2026-09-03 10:07:52] [STAGE] Beginning Stage 01: GEO Data Download & Probe Mapping [bio-01-geo-dataprep]
+[2026-09-03 10:07:52] [DRYRUN] Would execute script: geo_preprocess.R
+[2026-09-03 10:07:52] [GATE] Stage 01 Gate [FAILED]: Expression matrix and group metadata exist.
+[2026-09-03 10:07:52] [STAGE] Beginning Stage 02: Normalization & Batch Correction (SVA/ComBat) [bio-02-batch-norm]
+[2026-09-03 10:07:52] [DRYRUN] Would execute script: sva_combat.R
+[2026-09-03 10:07:52] [GATE] Stage 02 Gate [FAILED]: Normalized and batch-corrected matrix generated.
+[2026-09-03 10:07:52] [STAGE] Beginning Stage 03: Weighted Gene Co-expression Network Analysis [bio-03-wgcna]
+[2026-09-03 10:07:52] [DRYRUN] Would execute script: wgcna_build.R
+[2026-09-03 10:07:52] [GATE] Stage 03 Gate [FAILED]: Target co-expression module genes identified.
+[2026-09-03 10:07:52] [STAGE] Beginning Stage 04: Differential Expression Analysis (limma) [bio-04-deg-limma]
+[2026-09-03 10:07:52] [DRYRUN] Would execute script: limma_diff.R
+[2026-09-03 10:07:52] [GATE] Stage 04 Gate [FAILED]: Differentially expressed genes table non-empty.
+[2026-09-03 10:07:52] [STAGE] Beginning Stage 05: GO & KEGG Functional Enrichment [bio-05-enrichment]
+[2026-09-03 10:07:52] [DRYRUN] Would execute script: enrichment_analysis.R
+[2026-09-03 10:07:52] [GATE] Stage 05 Gate [PASSED]: Enrichment outputs generated or skipped.
+[2026-09-03 10:07:52] [STAGE] Beginning Stage 06: WGCNA & DEG Multi-Algorithm Intersection [bio-06-gene-intersection]
+[2026-09-03 10:07:52] [DRYRUN] Would execute script: venn_intersection.R
+[2026-09-03 10:07:52] [GATE] Stage 06 Gate [FAILED]: candidate_hub_genes.txt not found
+[2026-09-03 10:07:52] [STAGE] Beginning Stage 07: LASSO Feature Reduction & Cross-Validation [bio-07-ml-lasso]
+[2026-09-03 10:07:52] [DRYRUN] Would execute script: lasso_regression.R
+[2026-09-03 10:07:52] [GATE] Stage 07 Gate [FAILED]: LASSO.gene.txt not found
+[2026-09-03 10:07:52] [STAGE] Beginning Stage 08: Random Forest Permutation Importance [bio-08-ml-randomforest]
+[2026-09-03 10:07:52] [DRYRUN] Would execute script: random_forest_importance.R
+[2026-09-03 10:07:52] [GATE] Stage 08 Gate [FAILED]: rf_genes.txt not found
+[2026-09-03 10:07:52] [STAGE] Beginning Stage 09: Consensus Hub Determination & Literature Mining [bio-09-hub-literature]
+[2026-09-03 10:07:52] [DRYRUN] Would execute script: hub_gene_intersection.R
+[2026-09-03 10:07:52] [GATE] Stage 09 Gate [FAILED]: final_hub_genes.txt not found
+[2026-09-03 10:07:52] [STAGE] Beginning Stage 10: Diagnostic Biomarker ROC & AUC Validation [bio-10-biomarker-roc]
+[2026-09-03 10:07:52] [DRYRUN] Would execute script: roc_validation.R
+[2026-09-03 10:07:52] [GATE] Stage 10 Gate [FAILED]: auc_report.csv not found
+[2026-09-03 10:07:52] [SUCCESS] Consolidated Gate summary saved to: E:/all-agent-workspace/bio-skills/tests/e2e_workspace/pipeline_gate_report.csv

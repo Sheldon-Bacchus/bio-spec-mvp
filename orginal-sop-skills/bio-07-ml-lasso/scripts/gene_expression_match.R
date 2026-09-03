@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env Rscript
+#!/usr/bin/env Rscript
 # ==============================================================================
 # gene_expression_match.R - Match Candidate Genes to Expression Matrix
 # ==============================================================================

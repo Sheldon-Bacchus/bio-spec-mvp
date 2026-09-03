@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env Rscript
+#!/usr/bin/env Rscript
 # ==============================================================================
 # random_forest_importance.R - Random Forest Variable Importance & Permutation Test
 # ==============================================================================

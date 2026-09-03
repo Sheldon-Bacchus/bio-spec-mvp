@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env Rscript
+#!/usr/bin/env Rscript
 # ==============================================================================
 # Pipeline Stage: bio-03-wgcna
 # Script: wgcna_build.R

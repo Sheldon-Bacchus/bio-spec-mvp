@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env Rscript
+#!/usr/bin/env Rscript
 # ==============================================================================
 # Pipeline Stage: bio-05-enrichment
 # Script: enrichment_analysis.R

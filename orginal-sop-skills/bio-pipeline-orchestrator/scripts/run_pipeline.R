@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env Rscript
+#!/usr/bin/env Rscript
 # ==============================================================================
 # run_pipeline.R - Master Bioinformatics Pipeline Orchestrator
 # ==============================================================================
@@ -81,8 +81,8 @@ log_msg <- function(level, msg, log_file = NULL) {
   }
 }
 
-# Prerequisite checker
-check_prerequisites <- function(log_file) {
+## Prerequisite checker
+check_prerequisites <- function(log_file, dry_run = FALSE) {
   log_msg("INFO", "Checking environment prerequisites...", log_file)
   
   # 1. R Version
@@ -103,8 +103,12 @@ check_prerequisites <- function(log_file) {
   }
   
   if (length(missing_required) > 0) {
-    log_msg("ERROR", sprintf("Missing required R packages: %s", paste(missing_required, collapse = ", ")), log_file)
-    stop("Prerequisite check failed: missing required packages.")
+    if (dry_run) {
+      log_msg("WARN", sprintf("Dry-Run mode: missing packages (will be needed for live computation): %s", paste(missing_required, collapse = ", ")), log_file)
+    } else {
+      log_msg("ERROR", sprintf("Missing required R packages: %s", paste(missing_required, collapse = ", ")), log_file)
+      stop("Prerequisite check failed: missing required packages.")
+    }
   } else {
     log_msg("SUCCESS", "All critical R packages are available.", log_file)
   }
@@ -122,14 +126,14 @@ get_stage_definitions <- function(skills_dir) {
       stage_num = 1,
       id = "bio-01-geo-dataprep",
       name = "GEO Data Download & Probe Mapping",
-      script = file.path(skills_dir, "bio-01-geo-dataprep", "scripts", "geo_dataprep.R"),
+      script = file.path(skills_dir, "bio-01-geo-dataprep", "scripts", "geo_preprocess.R"),
       inputs = c(),
       outputs = c("expression_matrix.txt", "sample_group.csv"),
       gate_check = function(work_dir) {
         has_expr <- file.exists(file.path(work_dir, "expression_matrix.txt")) || 
                     file.exists(file.path(work_dir, "merge.normalzie.txt"))
         has_grp <- file.exists(file.path(work_dir, "sample_group.csv")) ||
-                   file.exists(file.path(work_dir, "clinic.csv"))
+                    file.exists(file.path(work_dir, "clinic.csv"))
         list(passed = has_expr && has_grp, detail = "Expression matrix and group metadata exist.")
       }
     ),
@@ -137,7 +141,7 @@ get_stage_definitions <- function(skills_dir) {
       stage_num = 2,
       id = "bio-02-batch-norm",
       name = "Normalization & Batch Correction (SVA/ComBat)",
-      script = file.path(skills_dir, "bio-02-batch-norm", "scripts", "normalize_batch.R"),
+      script = file.path(skills_dir, "bio-02-batch-norm", "scripts", "sva_combat.R"),
       inputs = c("expression_matrix.txt"),
       outputs = c("merge.normalize.txt"),
       gate_check = function(work_dir) {
@@ -151,7 +155,7 @@ get_stage_definitions <- function(skills_dir) {
       stage_num = 3,
       id = "bio-03-wgcna",
       name = "Weighted Gene Co-expression Network Analysis",
-      script = file.path(skills_dir, "bio-03-wgcna", "scripts", "wgcna_pipeline.R"),
+      script = file.path(skills_dir, "bio-03-wgcna", "scripts", "wgcna_build.R"),
       inputs = c("merge.normalize.txt"),
       outputs = c("module_genes.csv"),
       gate_check = function(work_dir) {
@@ -163,7 +167,7 @@ get_stage_definitions <- function(skills_dir) {
       stage_num = 4,
       id = "bio-04-deg-limma",
       name = "Differential Expression Analysis (limma)",
-      script = file.path(skills_dir, "bio-04-deg-limma", "scripts", "deg_analysis.R"),
+      script = file.path(skills_dir, "bio-04-deg-limma", "scripts", "limma_diff.R"),
       inputs = c("merge.normalize.txt"),
       outputs = c("diff.txt"),
       gate_check = function(work_dir) {
@@ -273,7 +277,7 @@ main <- function() {
   log_msg("INFO", sprintf("Dry Run Mode:             %s", ifelse(params$dry_run, "ENABLED", "DISABLED")), log_path)
   
   # Check R environment prerequisites
-  check_prerequisites(log_path)
+  check_prerequisites(log_path, dry_run = params$dry_run)
   
   stages <- get_stage_definitions(params$skills_dir)
   gate_records <- list()

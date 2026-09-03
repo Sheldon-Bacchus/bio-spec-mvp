@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env Rscript
+#!/usr/bin/env Rscript
 # ==============================================================================
 # Pipeline Stage: bio-02-batch-norm
 # Script: sva_combat.R

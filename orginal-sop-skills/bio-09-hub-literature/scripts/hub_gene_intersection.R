@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env Rscript
+#!/usr/bin/env Rscript
 # ==============================================================================
 # hub_gene_intersection.R - Dual-Algorithm Machine Learning Intersection
 # ==============================================================================

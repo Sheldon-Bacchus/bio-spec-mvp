@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env Rscript
+#!/usr/bin/env Rscript
 # ==============================================================================
 # venn_intersection.R - Multi-gene Set Intersection and Venn Diagram Generation
 # ==============================================================================
