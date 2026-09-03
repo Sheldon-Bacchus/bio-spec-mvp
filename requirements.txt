@@ -1,3 +1,4 @@
-# External execution dependency for the active bio-research-mvp MultiQC slice.
+# Optional external dependency for the independently scoped bio-multiqc Extension.
+# The generic research-control workflow does not execute MultiQC.
 # Spec Kit CLI itself is installed separately; see README.md.
 multiqc>=1.30

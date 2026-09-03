@@ -5,4 +5,5 @@
 dist/
 .bio/runs/
 .specify/extensions/.backup/
+.specify/extensions/.cache/
 .specify/.workflow-install.lock

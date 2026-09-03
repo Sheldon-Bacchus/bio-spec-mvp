@@ -1,0 +1,99 @@
+schema_version: "1.0"
+
+catalog:
+  id: "research-skill-catalog"
+  name: "Research capability candidate index"
+  purpose: "Fast lookup for plan-time selection; this file is not an execution workflow."
+  selection_rules:
+    - "Search by capability and contract metadata, then read the selected SKILL.md."
+    - "Only entries with executable: true may become a task skill_id."
+    - "Reference-only entries may inform a plan but must not be invoked as Skills."
+    - "Catalog presence is not evidence that a method fits a feature."
+    - "If required metadata is missing, record unresolved or blocked instead of falling back."
+
+entries:
+  - id: "bulk-pa-luad"
+    kind: "adapter"
+    executable: true
+    skill_id: "bulk-pa-luad"
+    skill_path: ".agents/skills/bulk-pa-luad/SKILL.md"
+    source_path: "02-skills/adapters/bulk-pa-luad"
+    capability_keywords: ["paired bulk RNA-seq", "differential expression", "edgeR", "limma", "DE handoff"]
+    contract_sections: ["Input", "Output", "Executable", "Fail closed"]
+
+  - id: "cross-branch-integration"
+    kind: "adapter"
+    executable: true
+    skill_id: "cross-branch-integration"
+    skill_path: ".agents/skills/cross-branch-integration/SKILL.md"
+    source_path: "02-skills/adapters/cross-branch-integration"
+    capability_keywords: ["cross-omics integration", "sample correspondence", "identifier harmonization", "direction concordance"]
+    contract_sections: ["Input", "Output", "Executable", "Fail closed"]
+
+  - id: "multiqc"
+    kind: "adapter"
+    executable: true
+    skill_id: "multiqc"
+    skill_path: ".agents/skills/multiqc/SKILL.md"
+    source_path: "02-skills/adapters/multiqc"
+    extension_id: "bio-multiqc"
+    capability_keywords: ["QC evidence aggregation", "HTML report", "machine-readable QC output", "sample/tool markers"]
+    contract_sections: ["Input", "Output", "Executable", "Fail closed"]
+
+  - id: "pathway-enrichment"
+    kind: "adapter"
+    executable: true
+    skill_id: "pathway-enrichment"
+    skill_path: ".agents/skills/pathway-enrichment/SKILL.md"
+    source_path: "02-skills/adapters/pathway-enrichment"
+    capability_keywords: ["GO enrichment", "KEGG enrichment", "ORA", "GSEA", "tested-gene universe"]
+    contract_sections: ["Input", "Output", "Executable", "Fail closed"]
+
+  - id: "wgcna-module-constraint"
+    kind: "adapter"
+    executable: true
+    skill_id: "wgcna-module-constraint"
+    skill_path: ".agents/skills/wgcna-module-constraint/SKILL.md"
+    source_path: "02-skills/adapters/wgcna-module-constraint"
+    capability_keywords: ["co-expression modules", "module-trait relationships", "hub genes", "module stability"]
+    contract_sections: ["Input", "Output", "Executable", "Fail closed"]
+
+  - id: "01-mds"
+    kind: "reference"
+    executable: false
+    source_path: "02-skills/reference-stack/01-mds"
+
+  - id: "02-deg"
+    kind: "reference"
+    executable: false
+    source_path: "02-skills/reference-stack/02-deg"
+
+  - id: "02-deg-results"
+    kind: "reference"
+    executable: false
+    source_path: "02-skills/reference-stack/02-deg-results"
+
+  - id: "03-de-visualization"
+    kind: "reference"
+    executable: false
+    source_path: "02-skills/reference-stack/03-de-visualization"
+
+  - id: "03-volcano"
+    kind: "reference"
+    executable: false
+    source_path: "02-skills/reference-stack/03-volcano"
+
+  - id: "04-pathway-enricher"
+    kind: "reference"
+    executable: false
+    source_path: "02-skills/reference-stack/04-pathway-enricher"
+
+  - id: "04-pathway-workflow"
+    kind: "reference"
+    executable: false
+    source_path: "02-skills/reference-stack/04-pathway-workflow"
+
+  - id: "05-kegg"
+    kind: "reference"
+    executable: false
+    source_path: "02-skills/reference-stack/05-kegg"

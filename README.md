@@ -13,15 +13,15 @@ bio-spec-005-research-core/
 │   ├── memory/                     # 项目 Constitution
 │   ├── scripts/powershell/         # Windows PowerShell 脚本
 │   ├── templates/                  # Spec/Plan/Tasks 等官方模板
-│   ├── presets/bio-research-mvp/   # 已安装的当前项目 preset
-│   ├── extensions/                 # 已安装的 MultiQC、Review 扩展
-│   └── workflows/                  # speckit + bio-research-mvp
+│   ├── presets/research-control/   # 已安装的通用 preset
+│   ├── extensions/                 # 独立安装的领域扩展
+│   └── workflows/                  # 官方 speckit + research-control
 ├── .agents/skills/                 # Codex 实际发现的 Skill 入口
 │   ├── speckit-*                   # 官方兼容入口；规范 ID 见 suites/
 │   ├── speckit-bio-*               # Bio 扩展命令入口
 │   └── 5 个项目适配器             # bulk / integration / MultiQC / pathway / WGCNA
 ├── specs/                          # 新建 feature 的标准目录
-├── tests/fixtures/multiqc/         # 当前 MVP 的可运行 fixture
+├── tests/fixtures/multiqc/         # bio-multiqc Extension 的独立 domain fixture
 ├── 01-spec-work-package/           # 005 工作包与审查证据
 ├── 02-skills/                      # 13 个 Bio Skill 分类、投影和压缩包
 └── 03-package-sources/             # preset/workflow/extension 源包
@@ -42,34 +42,33 @@ bio-spec-005-research-core/
   `speckit-taskstoissues` 辅助 Skill；
 - 当前项目的 Bio 命令入口和运行时注册状态。
 
-核心九阶段的官方兼容名为：
-`constitution`、`specify`、`clarify`、`plan`、`tasks`、`analyze`、
-`checklist`、`implement`、`converge`。`taskstoissues` 是辅助命令，不计入
-核心九阶段。
+本项目的控制命令 map 分为六个 core 和三个 optional quality-control 命令。
+这是项目导航分类，不是 Spec Kit 的官方固定九阶段 taxonomy。官方兼容名仍
+由每个 `speckit-*` 入口提供；`taskstoissues` 是辅助命令，不在这个 map 中。
 
-### 核心九阶段的规范 suite ID
+### 六个 core + 三个 optional 的规范 suite ID
 
 为了让 `spec`、`plan`、`review`、`implement` 等层级和官方阶段名称都可见，
 项目增加了规范 ID：
 
 ```text
-spec-01-constitution
-spec-02-specify
-spec-03-clarify
-plan-04-plan
-plan-05-tasks
-review-06-analyze
-review-07-checklist
-implement-08-implement
-review-09-converge
+spec-01-constitution       # core
+spec-02-specify            # core
+plan-03-plan               # core
+plan-04-tasks              # core
+implement-05-implement     # core
+review-06-converge         # core
+review-07-clarify          # optional quality control
+review-08-checklist        # optional quality control
+review-09-analyze          # optional quality control
 ```
 
 完整映射在 [`suites/README.md`](suites/README.md) 和
 [`03-package-sources/suite-registry.yml`](03-package-sources/suite-registry.yml)。
 这里的规范 ID 不取代官方 `speckit-*` Codex 入口，也不把 feature 产物改成
 `spec-xxx.md` 或 `plan-xxx.md`；官方 feature 目录仍使用 `spec.md`、`plan.md`
-和 `tasks.md`。Bio 的 MultiQC、bulk、pathway、WGCNA 等属于项目选择的 domain
-suite，不属于这九个核心 suite。
+和 `tasks.md`。Bio 的 MultiQC、bulk、pathway、WGCNA 等属于 plan 中按能力
+选择的 domain Skill/Extension，不属于控制命令 map。
 
 官方的项目边界不是把 Spec Kit CLI 源码整份复制进每个项目。项目保存初始化
 后的运行时文件；`specify-cli` 仍在机器上单独安装，Python、Codex 和 MultiQC
@@ -86,21 +85,21 @@ Python 3；其 hash 已同步到 `speckit.manifest.json`。
 
 当前运行时已安装并可检查：
 
-- preset：`bio-research-mvp`；
-- workflow：官方 `speckit`、当前项目 `bio-research-mvp`；
-- extension：`bio-multiqc`、`bio-review`；
+- preset：通用 `research-control`；
+- workflow：官方 `speckit`、通用 `research-control`；
+- extension：可独立使用的 `bio-multiqc`、`bio-review`；
 - Bio 逻辑 Skill：5 个项目适配器 + 8 个参考组件，共 13 个；Codex
   `runtime-projection` 是 5 个适配器的宿主副本，不重复计数。
 
-当前项目 workflow 只运行这个边界明确的 MVP 切片：
+通用 `research-control` workflow 只运行 Spec Kit 控制生命周期：
 
 ```text
-specify → review-spec → plan → review-plan → tasks
-        → MultiQC 执行 → review-execution → record-review
+specify → plan → tasks → implement → converge
 ```
 
-参考组件不会被这个 workflow 自动串接。它们保留在 `02-skills/reference-stack`
-中，作为后续研究设计和实现时按需读取的参考稿。
+`constitution` 是项目初始化命令；`clarify`、`checklist`、`analyze` 是按需
+插入的 optional quality-control 命令。参考组件不会被 workflow 自动串接；
+它们保留在 `02-skills/reference-stack` 中，作为规划时按需读取的参考稿。
 
 ## 单独下载后的用法
 
@@ -127,8 +126,8 @@ specify extension list
 specify workflow list
 ```
 
-这些命令应显示 Codex 集成、`bio-research-mvp` preset、两个 extension 和
-两个 workflow。当前 MVP 的 MultiQC 执行依赖可按项目清单安装：
+这些命令应显示 Codex 集成、`research-control` preset、两个独立 extension
+和两个 workflow。MultiQC 依赖仅在你明确使用 `bio-multiqc` Extension 时安装：
 
 ```powershell
 uv venv
@@ -151,18 +150,15 @@ $speckit-implement
 $speckit-converge
 ```
 
-已注册的项目 workflow 也可以直接运行：
+通用 workflow 也可以直接运行；它只处理控制层，不接收具体项目或工具参数：
 
 ```powershell
-specify workflow run bio-research-mvp `
-  -i "spec=Create a bounded MultiQC evidence slice" `
-  -i "multiqc_input=tests/fixtures/multiqc" `
-  -i "multiqc_output=.bio/runs/current/multiqc" `
-  -i "multiqc_config=.specify/extensions/bio-multiqc/config/multiqc_config.yaml"
+specify workflow run research-control `
+  -i "spec=Describe a bounded research capability and its evidence boundary"
 ```
 
-该 workflow 在规格审查、计划审查和发布审查处等待人工决定；生成 HTML 不等于
-科学结论或发布批准。
+具体 Skill/Extension 由计划发现并由 tasks 冻结；生成控制文件不等于科学结论
+或发布批准。领域执行和独立审阅设施不由这个 generic workflow 自动调用。
 
 ### 4. 继续已有 005 工作包
 
@@ -182,7 +178,7 @@ $env:SPECIFY_FEATURE_DIRECTORY = (Resolve-Path .\01-spec-work-package).Path
 - `01-spec-work-package/`：规格、计划、任务、契约、评估和 review 证据；
 - `02-skills/`：5 个项目适配器、8 个参考组件、5 个 runtime projection 和
   压缩归档；
-- `03-package-sources/`：可重新安装的当前项目源包；
+- `03-package-sources/`：可重新安装的通用 preset/workflow 与独立 Extension 源包；
 - 根级 `.specify/`、`.agents/skills/`、`specs/`、`tests/`：实际运行入口。
 
 这几个层级分开，避免把“参考稿”“逻辑 Skill”“Spec Kit 阶段”和“可执行

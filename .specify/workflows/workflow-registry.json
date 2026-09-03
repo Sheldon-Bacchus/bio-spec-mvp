@@ -9,13 +9,13 @@
       "installed_at": "2026-09-02T13:28:10.762464+00:00",
       "updated_at": "2026-09-02T13:28:10.762475+00:00"
     },
-    "bio-research-mvp": {
-      "name": "Bio Research Spec Kit MVP",
-      "version": "0.1.0",
-      "description": "Official Spec Kit planning lifecycle followed by one bounded, reviewable MultiQC execution slice.",
+    "research-control": {
+      "name": "Research Control Workflow",
+      "version": "0.2.0",
+      "description": "Run the generic Spec Kit feature lifecycle; domain execution is selected explicitly by plan/task bindings.",
       "source": "03-package-sources\\workflow\\workflow.yml",
-      "installed_at": "2026-09-02T13:29:25.433281+00:00",
-      "updated_at": "2026-09-02T13:29:25.433299+00:00"
+      "installed_at": "2026-09-03T01:17:31.580209+00:00",
+      "updated_at": "2026-09-03T01:19:03.692194+00:00"
     }
   }
 }

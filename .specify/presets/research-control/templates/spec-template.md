@@ -90,4 +90,4 @@
 
 - [Assumption about the data, environment, or intended users]
 - [Assumption about the reference, sample unit, or study design]
-- [Non-goal for this MVP]
+- [Non-goal for this feature]

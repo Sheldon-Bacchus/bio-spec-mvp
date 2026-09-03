@@ -13,7 +13,7 @@ feature specification and research notes.]
 
 **Language/Version**: [e.g., Python 3.11 or NEEDS CLARIFICATION]
 
-**Primary Dependencies**: [e.g., MultiQC, Nextflow, pandas or NEEDS CLARIFICATION]
+**Primary Dependencies**: [e.g., domain package, workflow engine, parser or NEEDS CLARIFICATION]
 
 **Storage**: [files, object storage, database, or N/A]
 
@@ -25,7 +25,7 @@ feature specification and research notes.]
 
 **Constraints**: [resource, reproducibility, privacy, or safety constraints]
 
-**Scale/Scope**: [bounded MVP scope]
+**Scale/Scope**: [bounded feature scope]
 
 ## Constitution Check
 
@@ -50,16 +50,38 @@ feature specification and research notes.]
 Do not silently select thresholds, contrasts, or causal interpretations. Record
 unresolved choices in `research.md` and resolve them before execution.
 
+## Capability and Skill Selection
+
+The preset does not select a concrete domain Skill. During planning, identify
+capabilities from the feature question, search the available Skill catalog, and
+record the contextual selection here. Candidate discovery is not execution.
+
+| capability_id | candidate_skill_ids | skill_id | preset_id | selection_reason | phase/label | inputs | outputs | verifier | failure_policy | provenance | status |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| [capability] | [catalog candidates] | [selected or empty] | [if applicable] | [why this contract fits] | [feature-defined label] | [artifacts/metadata] | [artifacts/metadata] | [command/contract] | [stop/block/unresolved] | [source/version] | [unresolved/candidate/selected/blocked] |
+
+Binding rules:
+
+- `skill_id` remains empty until the plan has a complete Skill or Extension
+  contract and a recorded selection reason.
+- An unresolved or blocked row MUST include the missing contract field or
+  decision; an Agent MUST NOT silently substitute an unspecified method.
+- The phase/label is opaque and feature-defined. It does not impose a
+  `research-pre`, `research-process`, or `research-post` architecture.
+- The selected row is copied into `tasks.md`, where execution details are
+  frozen for implementation.
+
 ## Pipeline and execution design
 
 ```text
-specify → plan → tasks → bounded execution → deterministic validation → human review
+specify → plan (select capability) → tasks (freeze binding)
+        → implement → converge
 ```
 
-Describe which Spec Kit workflow steps orchestrate the lifecycle and which
-pipeline engine (if any) performs the scientific computation. Spec Kit is the
-coordination layer; Nextflow, Snakemake, or another engine remains responsible
-for the computational DAG.
+Spec Kit is the coordination layer. A domain Skill, Extension, Nextflow,
+Snakemake, or another engine is selected only by a feature plan/task and keeps
+its own execution contract. This generic plan does not require any domain tool,
+dataset, or project-specific output path.
 
 ## Project Structure
 

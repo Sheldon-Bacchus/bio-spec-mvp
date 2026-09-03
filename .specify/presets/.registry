@@ -1,15 +1,15 @@
 {
   "schema_version": "1.0",
   "presets": {
-    "bio-research-mvp": {
-      "version": "0.1.0",
+    "research-control": {
+      "version": "0.2.0",
       "source": "local",
-      "manifest_hash": "sha256:cd29c6d4cbef43fe619abd5bd4b49a8ea4b981c32c7d00104b9028d2b8856687",
+      "manifest_hash": "sha256:03cbbadde308cd2b5deb7de6eff247876e56435c7b91db3470cfd3d85b492c4c",
       "enabled": true,
       "priority": 10,
       "registered_commands": {},
       "registered_skills": {},
-      "installed_at": "2026-09-02T13:29:24.804693+00:00"
+      "installed_at": "2026-09-03T01:29:31.436811+00:00"
     }
   }
 }

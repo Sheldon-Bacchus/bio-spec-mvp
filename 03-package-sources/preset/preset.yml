@@ -1,10 +1,10 @@
 schema_version: "1.0"
 
 preset:
-  id: "bio-research-mvp"
-  name: "Bio Research Spec Kit MVP"
-  version: "0.1.0"
-  description: "Official Spec Kit templates with a small, evidence-aware research profile."
+  id: "research-control"
+  name: "Research Control Spec Kit Preset"
+  version: "0.2.0"
+  description: "Reusable evidence-aware Spec Kit artifact templates with plan-time capability selection and task-time binding."
   author: "Sheldon-Bacchus"
   repository: "https://github.com/Sheldon-Bacchus/bio-spec-kit"
   license: "MIT"
@@ -29,15 +29,9 @@ provides:
       file: "templates/tasks-template.md"
       description: "Spec Kit tasks with validation commands and evidence paths"
       replaces: "tasks-template"
-  component_contract_bindings:
-    - component_id: "multiqc"
-      skill: ".agents/skills/multiqc/SKILL.md"
-      contract: "01-spec-work-package/contracts/multiqc/node.contract.json"
-      profile: "contracts/research-core-profile.yml"
-      status: "approved-design / bounded-slice-remediated / reusable-core-not-generalized"
 
 tags:
-  - "bioinformatics"
   - "research"
+  - "spec-kit"
+  - "control-plane"
   - "evidence"
-  - "mvp"

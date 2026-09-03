@@ -1,14 +1,15 @@
 schema_version: "1.0"
 
 registry:
-  id: "spec-kit-core-9"
-  name: "Spec Kit Core Nine Suite Registry"
-  status: "canonical-naming"
-  description: "Canonical project-level IDs for the nine official Spec Kit lifecycle stages."
+  id: "research-control-command-map"
+  name: "Research Control Command Map"
+  status: "canonical-navigation"
+  description: "Project classification of six core Spec Kit commands and three optional quality-control commands; not a universal official nine-stage taxonomy."
 
 naming:
   canonical_id_pattern: "{family}-{ordinal}-{official_stage}"
   ordinal_format: "two-digit"
+  ordinal_semantics: "project map order only; not a mandatory or universal Spec Kit execution order"
   official_command_pattern: "speckit.{official_stage}"
   codex_skill_pattern: "speckit-{official_stage}"
   compatibility_rule: "Keep official command and Codex names; canonical IDs are routing and documentation identifiers."
@@ -21,6 +22,7 @@ suites:
     official_stage: "constitution"
     official_command: "speckit.constitution"
     codex_skill: "speckit-constitution"
+    role: "core"
     primary_scope: ".specify/memory/constitution.md"
     bio_domain_suite: false
 
@@ -30,74 +32,86 @@ suites:
     official_stage: "specify"
     official_command: "speckit.specify"
     codex_skill: "speckit-specify"
+    role: "core"
     primary_scope: "specs/<feature>/spec.md"
     bio_domain_suite: false
 
-  - id: "spec-03-clarify"
-    family: "spec"
-    ordinal: "03"
-    official_stage: "clarify"
-    official_command: "speckit.clarify"
-    codex_skill: "speckit-clarify"
-    primary_scope: "specs/<feature>/spec.md and clarification evidence"
-    bio_domain_suite: false
-
-  - id: "plan-04-plan"
+  - id: "plan-03-plan"
     family: "plan"
-    ordinal: "04"
+    ordinal: "03"
     official_stage: "plan"
     official_command: "speckit.plan"
     codex_skill: "speckit-plan"
+    role: "core"
     primary_scope: "specs/<feature>/plan.md"
     bio_domain_suite: false
 
-  - id: "plan-05-tasks"
+  - id: "plan-04-tasks"
     family: "plan"
-    ordinal: "05"
+    ordinal: "04"
     official_stage: "tasks"
     official_command: "speckit.tasks"
     codex_skill: "speckit-tasks"
+    role: "core"
     primary_scope: "specs/<feature>/tasks.md"
     bio_domain_suite: false
 
-  - id: "review-06-analyze"
-    family: "review"
-    ordinal: "06"
-    official_stage: "analyze"
-    official_command: "speckit.analyze"
-    codex_skill: "speckit-analyze"
-    primary_scope: "Read-only consistency report over spec.md, plan.md and tasks.md"
-    bio_domain_suite: false
-
-  - id: "review-07-checklist"
-    family: "review"
-    ordinal: "07"
-    official_stage: "checklist"
-    official_command: "speckit.checklist"
-    codex_skill: "speckit-checklist"
-    primary_scope: "specs/<feature>/checklists/"
-    bio_domain_suite: false
-
-  - id: "implement-08-implement"
+  - id: "implement-05-implement"
     family: "implement"
-    ordinal: "08"
+    ordinal: "05"
     official_stage: "implement"
     official_command: "speckit.implement"
     codex_skill: "speckit-implement"
+    role: "core"
     primary_scope: "Task-defined source changes, tests and execution evidence"
     bio_domain_suite: false
 
-  - id: "review-09-converge"
+  - id: "review-06-converge"
     family: "review"
-    ordinal: "09"
+    ordinal: "06"
     official_stage: "converge"
     official_command: "speckit.converge"
     codex_skill: "speckit-converge"
+    role: "core"
     primary_scope: "Spec-to-implementation convergence report and remaining tasks"
     bio_domain_suite: false
 
-excluded_from_core_nine:
+  - id: "review-07-clarify"
+    family: "review"
+    ordinal: "07"
+    official_stage: "clarify"
+    official_command: "speckit.clarify"
+    codex_skill: "speckit-clarify"
+    role: "optional_quality_control"
+    primary_scope: "specs/<feature>/spec.md and clarification evidence"
+    bio_domain_suite: false
+
+  - id: "review-08-checklist"
+    family: "review"
+    ordinal: "08"
+    official_stage: "checklist"
+    official_command: "speckit.checklist"
+    codex_skill: "speckit-checklist"
+    role: "optional_quality_control"
+    primary_scope: "specs/<feature>/checklists/"
+    bio_domain_suite: false
+
+  - id: "review-09-analyze"
+    family: "review"
+    ordinal: "09"
+    official_stage: "analyze"
+    official_command: "speckit.analyze"
+    codex_skill: "speckit-analyze"
+    role: "optional_quality_control"
+    primary_scope: "Read-only consistency report over spec.md, plan.md and tasks.md"
+    bio_domain_suite: false
+
+counts:
+  core: 6
+  optional_quality_control: 3
+
+not_in_command_map:
   - id: "speckit-taskstoissues"
-    reason: "Official auxiliary command; it converts tasks to issue records and is not one of the nine lifecycle stages."
+    reason: "Official auxiliary command; it converts tasks to issue records and is outside this six-plus-three control map."
   - id: "multiqc"
-    reason: "Bio domain suite/example; it must be selected by a project plan and cannot be a fixed core lifecycle step."
+    reason: "Bio domain Skill/Extension; it must be selected by a project plan and cannot be a fixed control command."

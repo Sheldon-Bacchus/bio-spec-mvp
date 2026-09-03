@@ -1,17 +1,18 @@
 # Package sources
 
 这里保留当前项目可重新安装的 preset、workflow 和 extension 源文件。它们与
-根级 `.specify` 中的已安装运行时副本分开。官方九个阶段的规范命名见
+根级 `.specify` 中的已安装运行时副本分开。六个 core 与三个 optional quality
+control 命令的项目导航见
 [`suite-registry.yml`](suite-registry.yml) 和根级 [`suites/README.md`](../suites/README.md)。
 
-当前这些源包仍包含早期的 MultiQC vertical-slice 示例；该示例是具体项目/域
-套件，不是官方九阶段的一部分，后续应从通用 Bio workflow 中解耦。
+MultiQC vertical-slice 是具体项目/域示例，不是控制命令的一部分；它只通过
+独立 Extension 保留，不能成为 generic preset/workflow 的固定输入或步骤。
 
 当前源包：
 
-- `preset/`：`bio-research-mvp`；
-- `workflow/`：当前项目 `bio-research-mvp`；
-- `extensions/`：当前 workflow 需要的 `bio-multiqc`、`bio-review`。
+- `preset/`：通用 `research-control`；
+- `workflow/`：通用 `research-control` 控制生命周期；
+- `extensions/`：可独立安装的 `bio-multiqc`、`bio-review`，不是通用 workflow 的必需项。
 
 运行时状态可检查：
 
@@ -25,7 +26,7 @@ specify extension list
 
 ```powershell
 specify preset add --dev .\03-package-sources\preset
-specify workflow add .\03-package-sources\workflow\workflow.yml --dev
+specify workflow add --dev .\03-package-sources\workflow\workflow.yml
 specify extension add .\03-package-sources\extensions\bio-multiqc --dev --force
 specify extension add .\03-package-sources\extensions\bio-review --dev --force
 ```

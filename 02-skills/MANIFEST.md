@@ -1,5 +1,9 @@
 ﻿# Skills 清单与来源（2026-09-02）
 
+计划阶段的快速候选索引见 [`skill-catalog.yml`](skill-catalog.yml)。它只做
+能力/契约查找，不定义固定 workflow；只有 `adapter` 条目可成为 task 的
+`skill_id`，`reference` 条目只能作为参考资料。
+
 | 类型 | Skill | 来源 | SKILL.md |
 |---|---|---|---|
 | adapter | bulk-pa-luad | spec-mvp/skills/bulk-pa-luad | OK |
@@ -25,8 +29,8 @@
 
 ## 独立项目运行时入口
 
-本目录是 13 个 Bio Skill 的审计/来源层。单独下载后，Codex 和 Spec Kit 实际
-使用的根级入口是：
+本目录是 5 个可调用 adapter 与 8 个参考组件的审计/来源层。单独下载后，
+Codex 和 Spec Kit 实际使用的根级入口是：
 
 - `.specify/`：官方脚本、模板、Constitution、已安装 preset、extension 和
   workflow registry；
@@ -34,4 +38,4 @@
   命令和 5 个当前项目适配器。
 
 因此，`runtime-projection` 和根级 `.agents/skills` 的副本不计为新的逻辑
-Skill；参考组件也不会自动进入当前 MVP workflow。
+Skill；参考组件也不会自动进入 generic `research-control` workflow。

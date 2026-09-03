@@ -2,6 +2,7 @@
 
 - adapters/            5 个项目适配器（原始结构：SKILL.md + references）
 - reference-stack/     8 个参考组件 + 栈文档（analysis-order.md、README.md）
+- skill-catalog.yml    计划阶段候选索引；不编排执行顺序
 - runtime-projection/  5 个 Codex 运行时投影（对应 .agents/skills）
 - compressed/          压缩归档：4 个 zip + SHA256SUMS.txt + README
 - MANIFEST.md          来源与清单
