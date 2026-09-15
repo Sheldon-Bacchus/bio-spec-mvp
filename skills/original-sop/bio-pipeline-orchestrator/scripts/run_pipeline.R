@@ -1,380 +1,396 @@
 #!/usr/bin/env Rscript
-# ==============================================================================
-# run_pipeline.R - Master Bioinformatics Pipeline Orchestrator
-# ==============================================================================
-# Skill: bio-pipeline-orchestrator
-# Description: Top-level R orchestrator that validates prerequisites, inspects data
-#              contracts, executes stages according to the pipeline DAG, evaluates
-#              quality control gates, and generates consolidated execution logs.
-# ==============================================================================
+# ============================================================================
+# run_pipeline.R - Contract-first original-sop orchestrator
+#
+# Every stage receives explicit run-scoped paths, canonical metadata, and the
+# immutable run manifest. A child failure or a failed content gate is recorded
+# and propagated; --force never turns a failed gate into success.
+# ============================================================================
+
+file_arg <- grep("^--file=", commandArgs(trailingOnly = FALSE), value = TRUE)
+script_dir <- if (length(file_arg) > 0) dirname(normalizePath(sub("^--file=", "", file_arg[1]), winslash = "/", mustWork = FALSE)) else getwd()
+contract_helper <- Sys.getenv("BIO_PIPELINE_CONTRACT_HELPER", "")
+if (!nzchar(contract_helper)) contract_helper <- file.path(script_dir, "contract_helpers.R")
+if (!file.exists(contract_helper)) stop("[CONTRACT ERROR] contract_helpers.R not found", call. = FALSE)
+source(contract_helper)
 
 parse_args <- function() {
   args <- commandArgs(trailingOnly = TRUE)
   params <- list(
-    project_dir = getwd(),
-    skills_dir = NULL,
-    start_stage = 1,
-    end_stage = 10,
+    project_dir = "",
+    skills_dir = dirname(dirname(script_dir)),
+    matrix = "",
+    metadata = "",
+    platform = "",
+    control_group = "control",
+    treat_group = "case",
+    source_revision = "",
+    run_id = "",
+    manifest = "",
+    start_stage = 1L,
+    end_stage = 10L,
     dry_run = FALSE,
     force = FALSE,
     log_file = "pipeline_run.log",
-    gate_report = "pipeline_gate_report.csv"
+    gate_report = "pipeline_gate_report.csv",
+    report_json = "run-report.json"
   )
-  
   for (arg in args) {
-    if (grepl("^--project-dir=", arg)) {
-      params$project_dir <- normalizePath(sub("^--project-dir=", "", arg), winslash = "/", mustWork = FALSE)
-    } else if (grepl("^--skills-dir=", arg)) {
-      params$skills_dir <- normalizePath(sub("^--skills-dir=", "", arg), winslash = "/", mustWork = FALSE)
-    } else if (grepl("^--start-stage=", arg)) {
-      params$start_stage <- as.integer(sub("^--start-stage=", "", arg))
-    } else if (grepl("^--end-stage=", arg)) {
-      params$end_stage <- as.integer(sub("^--end-stage=", "", arg))
-    } else if (arg == "--dry-run") {
-      params$dry_run <- TRUE
-    } else if (arg == "--force") {
-      params$force <- TRUE
-    } else if (grepl("^--log=", arg)) {
-      params$log_file <- sub("^--log=", "", arg)
-    } else if (grepl("^--report=", arg)) {
-      params$gate_report <- sub("^--report=", "", arg)
-    } else if (arg %in% c("-h", "--help")) {
-      cat("Usage: Rscript run_pipeline.R [options]\n\n")
-      cat("Options:\n")
-      cat("  --project-dir=<dir>   Working directory with analysis data [default: current dir]\n")
-      cat("  --skills-dir=<dir>    Directory containing skill packages [default: auto-detected]\n")
-      cat("  --start-stage=<int>   Stage index to begin execution (1 to 10) [default: 1]\n")
-      cat("  --end-stage=<int>     Stage index to conclude execution (1 to 10) [default: 10]\n")
-      cat("  --dry-run             Validate prerequisites and contracts without execution\n")
-      cat("  --force               Continue pipeline even if non-critical gate warnings occur\n")
-      cat("  --log=<file>          Output execution log file [default: pipeline_run.log]\n")
-      cat("  --report=<file>       Output Gate report CSV [default: pipeline_gate_report.csv]\n")
+    if (grepl("^--project-dir=", arg)) params$project_dir <- sub("^--project-dir=", "", arg)
+    else if (grepl("^--skills-dir=", arg)) params$skills_dir <- sub("^--skills-dir=", "", arg)
+    else if (grepl("^--matrix=", arg)) params$matrix <- sub("^--matrix=", "", arg)
+    else if (grepl("^--metadata=", arg)) params$metadata <- sub("^--metadata=", "", arg)
+    else if (grepl("^--platform=", arg)) params$platform <- sub("^--platform=", "", arg)
+    else if (grepl("^--control-group=", arg)) params$control_group <- sub("^--control-group=", "", arg)
+    else if (grepl("^--treat-group=", arg)) params$treat_group <- sub("^--treat-group=", "", arg)
+    else if (grepl("^--source-revision=", arg)) params$source_revision <- sub("^--source-revision=", "", arg)
+    else if (grepl("^--run-id=", arg)) params$run_id <- sub("^--run-id=", "", arg)
+    else if (grepl("^--manifest=", arg)) params$manifest <- sub("^--manifest=", "", arg)
+    else if (grepl("^--start-stage=", arg)) params$start_stage <- as.integer(sub("^--start-stage=", "", arg))
+    else if (grepl("^--end-stage=", arg)) params$end_stage <- as.integer(sub("^--end-stage=", "", arg))
+    else if (arg == "--dry-run") params$dry_run <- TRUE
+    else if (arg == "--force") params$force <- TRUE
+    else if (grepl("^--log=", arg)) params$log_file <- sub("^--log=", "", arg)
+    else if (grepl("^--report=", arg)) params$gate_report <- sub("^--report=", "", arg)
+    else if (grepl("^--report-json=", arg)) params$report_json <- sub("^--report-json=", "", arg)
+    else if (arg %in% c("-h", "--help")) {
+      cat("Usage: Rscript run_pipeline.R --project-dir=<run-dir> --matrix=<matrix> --metadata=<metadata> --source-revision=<commit> --run-id=<id>\n")
+      cat("Required: explicit matrix, canonical metadata, source revision, and run ID.\n")
+      cat("Optional: --platform=<annotation>, --start-stage=<int>, --end-stage=<int>, --dry-run.\n")
       quit(status = 0)
     }
   }
-  
-  # Auto-detect skills directory if not provided
-  if (is.null(params$skills_dir)) {
-    script_file <- tryCatch(
-      normalizePath(sys.frames()[[1]]$ofile, winslash = "/", mustWork = FALSE),
-      error = function(e) ""
-    )
-    script_dir <- if (nzchar(script_file)) dirname(script_file) else ""
-    candidates <- c(
-      file.path(params$project_dir, ".agents", "skills"),
-      file.path(params$project_dir, "skills"),
-      if (nzchar(script_dir)) dirname(dirname(script_dir)) else character()
-    )
-    for (c_dir in candidates) {
-      if (dir.exists(c_dir)) {
-        params$skills_dir <- normalizePath(c_dir, winslash = "/")
-        break
-      }
-    }
-  }
-  
-  return(params)
+  params
 }
 
-# Logger helper
-log_msg <- function(level, msg, log_file = NULL) {
-  ts <- format(Sys.time(), "[%Y-%m-%d %H:%M:%S]")
-  formatted <- sprintf("%s [%s] %s\n", ts, level, msg)
-  cat(formatted)
-  if (!is.null(log_file)) {
-    cat(formatted, file = log_file, append = TRUE)
-  }
+log_msg <- function(level, message, log_path) {
+  line <- sprintf("[%s] [%s] %s", format(Sys.time(), "%Y-%m-%d %H:%M:%S"), level, message)
+  cat(line, "\n")
+  cat(line, "\n", file = log_path, append = TRUE)
 }
 
-## Prerequisite checker
-check_prerequisites <- function(log_file, dry_run = FALSE) {
-  log_msg("INFO", "Checking environment prerequisites...", log_file)
-  
-  # 1. R Version
-  r_ver <- paste(R.version$major, R.version$minor, sep = ".")
-  log_msg("INFO", sprintf("R Version detected: %s (%s)", r_ver, R.version$platform), log_file)
-  
-  # 2. Required R Packages
-  required_pkgs <- c(
-    "glmnet", "randomForest", "pROC", "ggplot2", "VennDiagram",
-    "limma", "sva", "WGCNA", "impute", "Biobase", "clusterProfiler"
-  )
-  optional_pkgs <- c("rfPermute", "enrichplot", "org.Hs.eg.db", "pathview", "UpSetR", "pheatmap", "ggrepel", "gridExtra", "flashClust", "DOSE", "GO.db")
-  
-  missing_required <- c()
-  for (pkg in required_pkgs) {
-    if (!requireNamespace(pkg, quietly = TRUE)) {
-      missing_required <- c(missing_required, pkg)
-    }
-  }
-  
-  if (length(missing_required) > 0) {
-    if (dry_run) {
-      log_msg("WARN", sprintf("Dry-Run mode: missing packages (will be needed for live computation): %s", paste(missing_required, collapse = ", ")), log_file)
-    } else {
-      log_msg("ERROR", sprintf("Missing required R packages: %s", paste(missing_required, collapse = ", ")), log_file)
-      stop("Prerequisite check failed: missing required packages.")
-    }
-  } else {
-    log_msg("SUCCESS", "All critical R packages are available.", log_file)
-  }
-  
-  for (pkg in optional_pkgs) {
-    status <- if (requireNamespace(pkg, quietly = TRUE)) "Installed" else "Not installed (fallback mode will be used)"
-    log_msg("INFO", sprintf("Optional package '%s': %s", pkg, status), log_file)
-  }
-}
+path_arg <- function(key, value) sprintf("--%s=%s", key, value)
 
-# Define stage registry
-get_stage_definitions <- function(skills_dir) {
+stage_definitions <- function(params, metadata) {
+  root <- normalizePath(params$skills_dir, winslash = "/", mustWork = TRUE)
+  project <- params$project_dir
+  manifest <- params$manifest
+  matrix <- params$matrix
+  metadata_path <- params$metadata
+  norm <- file.path(project, sprintf("%s.normalize.txt", params$run_id))
+  pd <- file.path(project, "PD.csv")
+  prenorm <- file.path(project, "merge.preNorm.txt")
+  corrected <- file.path(project, "merge.normalize.txt")
+  pca <- file.path(project, "pca_qc.pdf")
+  rdata <- file.path(project, "wgcna_net.RData")
+  soft_threshold <- file.path(project, "softThreshold.pdf")
+  module_dendrogram <- file.path(project, "moduleDendrogram.pdf")
+  module_trait_heatmap <- file.path(project, "module_trait_heatmap.pdf")
+  module_genes <- file.path(project, "module_genes.csv")
+  diff <- file.path(project, "diff.txt")
+  all_diff <- file.path(project, "all.txt")
+  deg_list <- file.path(project, "candidate_hub_genes_deg.txt")
+  heatmap <- file.path(project, "heatmap.pdf")
+  volcano <- file.path(project, "vol.pdf")
+  intersection <- file.path(project, "candidate_hub_genes.txt")
+  lasso <- file.path(project, "LASSO.gene.txt")
+  rf <- file.path(project, "rf_genes.txt")
+  final_hub <- file.path(project, "final_hub_genes.txt")
+  literature_report <- file.path(project, "literature_evidence_report.md")
+  auc <- file.path(project, "auc_report.csv")
+  roc_combined <- file.path(project, "roc_combined.pdf")
+  stage <- function(number, id, scripts, inputs, outputs, args) {
+    list(stage_num = number, id = id, scripts = scripts, inputs = inputs,
+         outputs = outputs, args = args)
+  }
+  species <- as.character(metadata$species[[1]])
+  id_type <- as.character(metadata$id_type[[1]])
+  stage1_inputs <- c(matrix, metadata_path)
+  if (nzchar(params$platform)) stage1_inputs <- c(stage1_inputs, params$platform)
   list(
-    list(
-      stage_num = 1,
-      id = "bio-01-geo-dataprep",
-      name = "GEO Data Download & Probe Mapping",
-      script = file.path(skills_dir, "bio-01-geo-dataprep", "scripts", "geo_preprocess.R"),
-      inputs = c(),
-      outputs = c("{gse_id}.normalize.txt", "PD.csv"),
-      gate_check = function(work_dir) {
-        has_expr <- any(grepl("[.]normalize[.]txt$", list.files(work_dir)))
-        has_grp <- file.exists(file.path(work_dir, "PD.csv")) || file.exists(file.path(work_dir, "group.txt"))
-        list(passed = has_expr && has_grp, detail = "Normalized expression matrix (*.normalize.txt) and group metadata (PD.csv/group.txt) exist.")
-      }
-    ),
-    list(
-      stage_num = 2,
-      id = "bio-02-batch-norm",
-      name = "Normalization & Batch Correction (SVA/ComBat)",
-      script = file.path(skills_dir, "bio-02-batch-norm", "scripts", "sva_combat.R"),
-      inputs = c("{gse_id}.normalize.txt"),
-      outputs = c("merge.normalize.txt"),
-      gate_check = function(work_dir) {
-        f <- file.path(work_dir, "merge.normalize.txt")
-        list(passed = file.exists(f), detail = "Normalized and batch-corrected matrix generated (merge.normalize.txt).")
-      }
-    ),
-    list(
-      stage_num = 3,
-      id = "bio-03-wgcna",
-      name = "Weighted Gene Co-expression Network Analysis",
-      script = file.path(skills_dir, "bio-03-wgcna", "scripts", "wgcna_build.R"),
-      inputs = c("merge.normalize.txt"),
-      outputs = c("module_genes.csv"),
-      gate_check = function(work_dir) {
-        f <- file.path(work_dir, "module_genes.csv")
-        list(passed = file.exists(f) && file.info(f)$size > 10, detail = "Target co-expression module genes identified.")
-      }
-    ),
-    list(
-      stage_num = 4,
-      id = "bio-04-deg-limma",
-      name = "Differential Expression Analysis (limma)",
-      script = file.path(skills_dir, "bio-04-deg-limma", "scripts", "limma_diff.R"),
-      inputs = c("merge.normalize.txt"),
-      outputs = c("diff.txt"),
-      gate_check = function(work_dir) {
-        f <- file.path(work_dir, "diff.txt")
-        list(passed = file.exists(f) && file.info(f)$size > 10, detail = "Differentially expressed genes table non-empty.")
-      }
-    ),
-    list(
-      stage_num = 5,
-      id = "bio-05-enrichment",
-      name = "GO & KEGG Functional Enrichment",
-      script = file.path(skills_dir, "bio-05-enrichment", "scripts", "enrichment_analysis.R"),
-      inputs = c("diff.txt"),
-      outputs = c("go_enrichment.csv"),
-      gate_check = function(work_dir) {
-        f1 <- file.path(work_dir, "GO_enrichment.csv")
-        f2 <- file.path(work_dir, "KEGG_enrichment.csv")
-        ok1 <- file.exists(f1) && file.info(f1)$size > 0
-        ok2 <- file.exists(f2) && file.info(f2)$size > 0
-        list(passed = ok1 || ok2, detail = "GO_enrichment.csv / KEGG_enrichment.csv non-empty (at least one required).")
-      }
-    ),
-    list(
-      stage_num = 6,
-      id = "bio-06-gene-intersection",
-      name = "WGCNA & DEG Multi-Algorithm Intersection",
-      script = file.path(skills_dir, "bio-06-gene-intersection", "scripts", "venn_intersection.R"),
-      inputs = c("module_genes.csv", "diff.txt"),
-      outputs = c("candidate_hub_genes.txt", "venn_plot.pdf"),
-      gate_check = function(work_dir) {
-        f <- file.path(work_dir, "candidate_hub_genes.txt")
-        if (!file.exists(f)) return(list(passed = FALSE, detail = "candidate_hub_genes.txt not found"))
-        n <- length(readLines(f, warn = FALSE))
-        list(passed = n >= 2, detail = sprintf("Candidate hub genes count = %d (Gate target >= 2)", n))
-      }
-    ),
-    list(
-      stage_num = 7,
-      id = "bio-07-ml-lasso",
-      name = "LASSO Feature Reduction & Cross-Validation",
-      script = file.path(skills_dir, "bio-07-ml-lasso", "scripts", "lasso_regression.R"),
-      prep_script = file.path(skills_dir, "bio-07-ml-lasso", "scripts", "gene_expression_match.R"),
-      inputs = c("candidate_hub_genes.txt"),
-      outputs = c("LASSO.gene.txt", "lasso.pdf", "cvfit.pdf"),
-      gate_check = function(work_dir) {
-        f <- file.path(work_dir, "LASSO.gene.txt")
-        if (!file.exists(f)) return(list(passed = FALSE, detail = "LASSO.gene.txt not found"))
-        n <- length(readLines(f, warn = FALSE))
-        list(passed = n >= 1, detail = sprintf("LASSO selected %d features (Gate target >= 1)", n))
-      }
-    ),
-    list(
-      stage_num = 8,
-      id = "bio-08-ml-randomforest",
-      name = "Random Forest Permutation Importance",
-      script = file.path(skills_dir, "bio-08-ml-randomforest", "scripts", "random_forest_importance.R"),
-      inputs = c("merged_file.txt"),
-      outputs = c("rf_genes.txt", "richness.txt", "rf_importance.pdf"),
-      gate_check = function(work_dir) {
-        f <- file.path(work_dir, "rf_genes.txt")
-        if (!file.exists(f)) return(list(passed = FALSE, detail = "rf_genes.txt not found"))
-        n <- length(readLines(f, warn = FALSE))
-        list(passed = n >= 1, detail = sprintf("Random Forest selected %d features (Gate target >= 1)", n))
-      }
-    ),
-    list(
-      stage_num = 9,
-      id = "bio-09-hub-literature",
-      name = "Consensus Hub Determination & Literature Mining",
-      script = file.path(skills_dir, "bio-09-hub-literature", "scripts", "hub_gene_intersection.R"),
-      inputs = c("LASSO.gene.txt", "rf_genes.txt"),
-      outputs = c("final_hub_genes.txt"),
-      gate_check = function(work_dir) {
-        f <- file.path(work_dir, "final_hub_genes.txt")
-        if (!file.exists(f)) return(list(passed = FALSE, detail = "final_hub_genes.txt not found"))
-        n <- length(readLines(f, warn = FALSE))
-        list(passed = n >= 1, detail = sprintf("Final consensus Hub genes count = %d (Gate target >= 1)", n))
-      }
-    ),
-    list(
-      stage_num = 10,
-      id = "bio-10-biomarker-roc",
-      name = "Diagnostic Biomarker ROC & AUC Validation",
-      script = file.path(skills_dir, "bio-10-biomarker-roc", "scripts", "roc_validation.R"),
-      inputs = c("final_hub_genes.txt"),
-      outputs = c("auc_report.csv", "roc_single_gene.pdf"),
-      gate_check = function(work_dir) {
-        f <- file.path(work_dir, "auc_report.csv")
-        if (!file.exists(f)) return(list(passed = FALSE, detail = "auc_report.csv not found"))
-        rep <- read.csv(f, stringsAsFactors = FALSE)
-        max_auc <- max(rep$AUC, na.rm = TRUE)
-        list(passed = max_auc >= 0.70, detail = sprintf("Maximum biomarker AUC = %.3f (Gate target >= 0.70)", max_auc))
-      }
-    )
+    stage(1L, "bio-01-geo-dataprep",
+          file.path(root, "bio-01-geo-dataprep", "scripts", "geo_preprocess.R"),
+           stage1_inputs, c(norm, pd),
+          list(c(path_arg("matrix", matrix), path_arg("metadata", metadata_path),
+                 path_arg("manifest", manifest), path_arg("gse-id", params$run_id),
+                 if (nzchar(params$platform)) path_arg("platform", params$platform) else character(),
+                 path_arg("outdir", project), path_arg("source-revision", params$source_revision)))),
+     stage(2L, "bio-02-batch-norm",
+           c(file.path(root, "bio-02-batch-norm", "scripts", "sva_combat.R"),
+             file.path(root, "bio-02-batch-norm", "scripts", "pca_qc.R")),
+           c(norm, metadata_path), c(prenorm, corrected, file.path(project, "boxplot_comparison.pdf"), pca),
+           list(c(path_arg("input-files", norm), path_arg("metadata", metadata_path),
+                  path_arg("manifest", manifest), path_arg("outdir", project),
+                  path_arg("source-revision", params$source_revision)),
+                c(path_arg("input", corrected), path_arg("metadata", metadata_path),
+                  path_arg("manifest", manifest), path_arg("outdir", project),
+                  path_arg("source-revision", params$source_revision)))),
+    stage(3L, "bio-03-wgcna",
+          c(file.path(root, "bio-03-wgcna", "scripts", "wgcna_build.R"),
+            file.path(root, "bio-03-wgcna", "scripts", "wgcna_module_export.R")),
+           c(corrected, metadata_path), c(rdata, soft_threshold, module_dendrogram, module_trait_heatmap,
+                                          module_genes, file.path(project, "geneInfo.csv"),
+                                          file.path(project, "candidate_hub_genes_wgcna.txt")),
+           list(c(path_arg("input", corrected), path_arg("metadata", metadata_path),
+                  path_arg("manifest", manifest), path_arg("outdir", project),
+                  path_arg("source-revision", params$source_revision)),
+                c(path_arg("rdata", rdata), path_arg("metadata", metadata_path),
+                 path_arg("manifest", manifest), path_arg("outdir", project),
+                 path_arg("source-revision", params$source_revision), path_arg("trait", "group")))),
+     stage(4L, "bio-04-deg-limma",
+           c(file.path(root, "bio-04-deg-limma", "scripts", "limma_diff.R"),
+             file.path(root, "bio-04-deg-limma", "scripts", "volcano_heatmap.R")),
+           c(corrected, metadata_path), c(all_diff, diff, deg_list, heatmap, volcano),
+           list(c(path_arg("input", corrected), path_arg("metadata", metadata_path),
+                  path_arg("manifest", manifest), path_arg("outdir", project),
+                  path_arg("source-revision", params$source_revision),
+                  path_arg("control-group", params$control_group), path_arg("treat-group", params$treat_group)),
+                c(path_arg("input", all_diff), path_arg("metadata", metadata_path),
+                  path_arg("manifest", manifest), path_arg("outdir", project),
+                  path_arg("source-revision", params$source_revision)))),
+    stage(5L, "bio-05-enrichment",
+          file.path(root, "bio-05-enrichment", "scripts", "enrichment_analysis.R"),
+          c(diff, all_diff, metadata_path), c(file.path(project, "GO_enrichment.csv"), file.path(project, "KEGG_enrichment.csv")),
+          list(c(path_arg("input", diff), path_arg("universe", all_diff), path_arg("species", species),
+                 path_arg("id-type", id_type), path_arg("metadata", metadata_path), path_arg("manifest", manifest),
+                 path_arg("outdir", project), path_arg("source-revision", params$source_revision)))),
+    stage(6L, "bio-06-gene-intersection",
+          file.path(root, "bio-06-gene-intersection", "scripts", "venn_intersection.R"),
+          c(module_genes, deg_list), c(intersection, file.path(project, "venn_plot.pdf")),
+          list(c(path_arg("wgcna", module_genes), path_arg("deg", deg_list), path_arg("manifest", manifest),
+                 path_arg("output-dir", project), path_arg("source-revision", params$source_revision)))),
+    stage(7L, "bio-07-ml-lasso",
+          file.path(root, "bio-07-ml-lasso", "scripts", "lasso_regression.R"),
+          c(corrected, metadata_path), c(lasso, file.path(project, "lasso_coefficients.csv")),
+          list(c(path_arg("input", corrected), path_arg("metadata", metadata_path), path_arg("manifest", manifest),
+                 path_arg("output-dir", project), path_arg("source-revision", params$source_revision)))),
+    stage(8L, "bio-08-ml-randomforest",
+          file.path(root, "bio-08-ml-randomforest", "scripts", "random_forest_importance.R"),
+          c(corrected, metadata_path), c(rf, file.path(project, "richness.txt")),
+          list(c(path_arg("input", corrected), path_arg("metadata", metadata_path), path_arg("manifest", manifest),
+                 path_arg("output-dir", project), path_arg("source-revision", params$source_revision)))),
+     stage(9L, "bio-09-hub-literature",
+           c(file.path(root, "bio-09-hub-literature", "scripts", "hub_gene_intersection.R"),
+             file.path(root, "bio-09-hub-literature", "scripts", "literature_review.R")),
+           c(lasso, rf), c(final_hub, file.path(project, "hub_intersection_summary.txt"), literature_report),
+           list(c(path_arg("lasso", lasso), path_arg("rf", rf), path_arg("manifest", manifest),
+                  path_arg("output-dir", project), path_arg("source-revision", params$source_revision)),
+                c(path_arg("hub", final_hub), path_arg("metadata", metadata_path), path_arg("manifest", manifest),
+                  path_arg("output-dir", project), path_arg("source-revision", params$source_revision)))),
+    stage(10L, "bio-10-biomarker-roc",
+          file.path(root, "bio-10-biomarker-roc", "scripts", "roc_validation.R"),
+           c(corrected, final_hub, metadata_path), c(auc, file.path(project, "roc_single_gene.pdf"), roc_combined),
+          list(c(path_arg("expr", corrected), path_arg("hub", final_hub), path_arg("metadata", metadata_path),
+                 path_arg("manifest", manifest), path_arg("output-dir", project),
+                 path_arg("source-revision", params$source_revision))))
   )
+}
+
+content_gate <- function(stage, output_paths, project_dir) {
+  missing <- output_paths[!file.exists(output_paths)]
+  if (length(missing) > 0) return(list(status = "failure", reason = sprintf("missing declared outputs: %s", paste(basename(missing), collapse = ", "))))
+  count_lines <- function(path) {
+    if (!file.exists(path)) return(0L)
+    lines <- readLines(path, warn = FALSE)
+    sum(nzchar(trimws(lines)))
+  }
+  status <- "success"
+  reason <- "declared outputs exist and content gate passed"
+  if (stage$stage_num == 4L && count_lines(file.path(project_dir, "diff.txt")) <= 1L) {
+    status <- "negative"; reason <- "no significant DEG passed the declared threshold"
+  } else if (stage$stage_num == 5L && all(count_lines(output_paths) <= 1L)) {
+    status <- "negative"; reason <- "no enrichment term passed the declared threshold"
+  } else if (stage$stage_num == 6L && count_lines(file.path(project_dir, "candidate_hub_genes.txt")) == 0L) {
+    status <- "negative"; reason <- "WGCNA/DEG intersection is empty; no union fallback"
+  } else if (stage$stage_num == 7L && count_lines(file.path(project_dir, "LASSO.gene.txt")) == 0L) {
+    status <- "negative"; reason <- "LASSO selected no genes; no top-N fallback"
+  } else if (stage$stage_num == 8L && count_lines(file.path(project_dir, "rf_genes.txt")) == 0L) {
+    status <- "negative"; reason <- "RF selected no significant genes; no top-N fallback"
+  } else if (stage$stage_num == 9L && count_lines(file.path(project_dir, "final_hub_genes.txt")) == 0L) {
+    status <- "negative"; reason <- "consensus hub intersection is empty; no union/copy fallback"
+  } else if (stage$stage_num == 9L && file.exists(file.path(project_dir, "literature_evidence_report.md")) &&
+             any(grepl("^status:\\s*skipped$", readLines(file.path(project_dir, "literature_evidence_report.md"), warn = FALSE)))) {
+    status <- "manual_review"; reason <- "hub intersection computed, but literature evidence remains skipped pending an eligible evidence call/review"
+  } else if (stage$stage_num == 10L) {
+    auc_table <- tryCatch(read.csv(file.path(project_dir, "auc_report.csv"), stringsAsFactors = FALSE), error = function(e) NULL)
+    if (is.null(auc_table) || nrow(auc_table) == 0L) {
+      status <- "negative"; reason <- "no valid independent-validation AUC was computed"
+    } else {
+      max_auc <- max(auc_table$AUC, na.rm = TRUE)
+      if (!is.finite(max_auc) || max_auc < 0.70) {
+        status <- "negative"; reason <- sprintf("independent-validation AUC did not meet threshold (max=%.3f)", max_auc)
+      }
+    }
+  }
+  list(status = status, reason = reason)
+}
+
+run_child <- function(script, args, log_path) {
+  stdout_path <- tempfile("original-sop-stdout-")
+  stderr_path <- tempfile("original-sop-stderr-")
+  command_text <- paste(c("Rscript", shQuote(script), vapply(args, shQuote, character(1))), collapse = " ")
+  system_args <- c(shQuote(script), vapply(args, shQuote, character(1)))
+  code <- tryCatch(system2("Rscript", args = system_args, stdout = stdout_path, stderr = stderr_path), error = function(e) {
+    writeLines(conditionMessage(e), stderr_path)
+    127L
+  })
+  child_output <- c(if (file.exists(stdout_path)) readLines(stdout_path, warn = FALSE) else character(),
+                    if (file.exists(stderr_path)) readLines(stderr_path, warn = FALSE) else character())
+  if (length(child_output) > 0) cat(paste(child_output, collapse = "\n"), "\n", file = log_path, append = TRUE)
+  unlink(c(stdout_path, stderr_path))
+  list(code = as.integer(code), command = command_text, output = child_output)
 }
 
 main <- function() {
   params <- parse_args()
-  
+  if (!nzchar(params$project_dir) || !nzchar(params$matrix) || !nzchar(params$metadata) ||
+      !nzchar(params$source_revision) || !nzchar(params$run_id)) {
+    contract_stop("--project-dir, --matrix, --metadata, --source-revision, and --run-id are required")
+  }
+  if (!grepl("^[A-Za-z0-9._-]+$", params$run_id)) contract_stop("run-id contains unsupported characters")
+  params$project_dir <- normalizePath(params$project_dir, winslash = "/", mustWork = FALSE)
+  params$skills_dir <- normalizePath(params$skills_dir, winslash = "/", mustWork = TRUE)
+  dir.create(params$project_dir, recursive = TRUE, showWarnings = FALSE)
+  params$matrix <- assert_explicit_path(params$matrix, "expression matrix", must_exist = TRUE)
+  params$metadata <- assert_explicit_path(params$metadata, "sample metadata", must_exist = TRUE)
+  if (nzchar(params$platform)) params$platform <- assert_explicit_path(params$platform, "platform annotation", must_exist = TRUE)
+  params$source_revision <- assert_scalar_text(params$source_revision, "source revision")
+  params$control_group <- assert_scalar_text(params$control_group, "control group")
+  params$treat_group <- assert_scalar_text(params$treat_group, "treat group")
+  params$manifest <- if (nzchar(params$manifest)) normalizePath(params$manifest, winslash = "/", mustWork = FALSE) else file.path(params$project_dir, "run-manifest.json")
+  if (file.exists(params$manifest)) contract_stop(sprintf("stale manifest already exists; use a new run directory: %s", params$manifest))
+  metadata <- read_metadata_contract(params$metadata)
+  matrix_values <- read_expression_matrix_contract(params$matrix, metadata)
+  stages <- stage_definitions(params, metadata)
+  output_candidates <- unique(unlist(lapply(stages, `[[`, "outputs")))
+  existing_outputs <- output_candidates[file.exists(output_candidates)]
+  if (length(existing_outputs) > 0) contract_stop(sprintf("stale output(s) already exist in run directory: %s", paste(basename(existing_outputs), collapse = ", ")))
+
+  manifest <- list(
+    run_id = params$run_id,
+    source_revision = params$source_revision,
+    created_at = format(Sys.time(), "%Y-%m-%dT%H:%M:%SZ", tz = "UTC"),
+     parameters = list(start_stage = params$start_stage, end_stage = params$end_stage, dry_run = params$dry_run,
+                       control_group = params$control_group, treat_group = params$treat_group,
+                       r_version = R.version.string, rscript = Sys.which("Rscript")),
+    inputs = {
+      input_records <- list(
+      list(logical_name = "expression_matrix", path = params$matrix, sha256 = sha256_file(params$matrix),
+           schema_version = "1.0.0", sample_ids = as.character(colnames(matrix_values))),
+      list(logical_name = "sample_metadata", path = params$metadata, sha256 = sha256_file(params$metadata),
+           schema_version = "1.0.0", sample_ids = as.character(metadata$sample_id))
+      )
+      if (nzchar(params$platform)) {
+        input_records[[length(input_records) + 1L]] <- list(
+          logical_name = "platform_annotation", path = params$platform, sha256 = sha256_file(params$platform),
+          schema_version = "1.0.0", sample_ids = character()
+        )
+      }
+      input_records
+    },
+    stages = lapply(stages, function(st) list(stage_id = st$id, order = st$stage_num, status = "skipped",
+                                               reason = "not yet executed", inputs = as.character(st$inputs),
+                                               outputs = as.character(st$outputs))),
+    manual_changes = list()
+  )
+  attr(manifest, "input_sha256") <- vapply(manifest$inputs, function(item) item$sha256, character(1))
+  dir.create(file.path(params$project_dir, "status"), recursive = TRUE, showWarnings = FALSE)
+  write_json_contract(manifest, params$manifest)
   log_path <- file.path(params$project_dir, params$log_file)
-  report_path <- file.path(params$project_dir, params$gate_report)
-  
-  cat("======================================================================\n")
-  cat("            BIO-PIPELINE MASTER WORKFLOW ORCHESTRATOR                \n")
-  cat("======================================================================\n")
-  log_msg("INFO", sprintf("Target Project Directory: %s", params$project_dir), log_path)
-  log_msg("INFO", sprintf("Skills Root Directory:    %s", params$skills_dir), log_path)
-  log_msg("INFO", sprintf("Execution Range:          Stage %02d -> Stage %02d", params$start_stage, params$end_stage), log_path)
-  log_msg("INFO", sprintf("Dry Run Mode:             %s", ifelse(params$dry_run, "ENABLED", "DISABLED")), log_path)
-  
-  # Check R environment prerequisites
-  check_prerequisites(log_path, dry_run = params$dry_run)
-  
-  stages <- get_stage_definitions(params$skills_dir)
-  gate_records <- list()
-  
+  log_msg("INFO", sprintf("run_id=%s source_revision=%s", params$run_id, params$source_revision), log_path)
+  if (isTRUE(params$force)) log_msg("WARN", "--force is accepted for compatibility but cannot bypass a failed contract gate", log_path)
+  statuses <- list()
+  halted <- FALSE
   for (st in stages) {
-    if (st$stage_num < params$start_stage || st$stage_num > params$end_stage) {
+    if (st$stage_num < params$start_stage || st$stage_num > params$end_stage) next
+    if (halted) {
+      reason <- "skipped after an upstream failure/negative gate"
+      record <- write_stage_status(manifest, st$id, "skipped", reason, character(), st$inputs, st$outputs,
+                                   metadata$sample_id, status_path = file.path(params$project_dir, "status", paste0(st$id, ".json")), exit_code = 0)
+      update_manifest_stage(params$manifest, st$id, "skipped", reason, st$inputs, st$outputs)
+      statuses[[st$id]] <- record
       next
     }
-    
-    cat("\n----------------------------------------------------------------------\n")
-    log_msg("STAGE", sprintf("Beginning Stage %02d: %s [%s]", st$stage_num, st$name, st$id), log_path)
-    
-    # 1. Check Input Prerequisites
-    missing_inputs <- c()
-    for (inp in st$inputs) {
-      f_target <- file.path(params$project_dir, inp)
-      # Check alternate names
-      if (!file.exists(f_target)) {
-        missing_inputs <- c(missing_inputs, inp)
-      }
-    }
-    
-    if (length(missing_inputs) > 0 && !params$dry_run) {
-      log_msg("ERROR", sprintf("Missing required inputs for Stage %02d: %s", 
-                              st$stage_num, paste(missing_inputs, collapse = ", ")), log_path)
-      if (!params$force) {
-        stop(sprintf("Pipeline halted at Stage %02d due to missing input contracts.", st$stage_num))
-      }
-    }
-    
-    # 2. Execute Stage Scripts
-    if (!params$dry_run) {
-      # Execute preparation script if needed (e.g., Skill 07 expression matching)
-      if (!is.null(st$prep_script) && file.exists(st$prep_script)) {
-        log_msg("EXEC", sprintf("Running prep script: %s", basename(st$prep_script)), log_path)
-        cmd_prep <- sprintf('Rscript "%s" --output-dir="%s"', st$prep_script, params$project_dir)
-        status_prep <- system(cmd_prep)
-        if (status_prep != 0) {
-          log_msg("ERROR", sprintf("Preparation script failed with code %d", status_prep), log_path)
-          if (!params$force) stop("Pipeline halted.")
-        }
-      }
-      
-      # Execute primary script
-      if (file.exists(st$script)) {
-        log_msg("EXEC", sprintf("Running primary script: %s", basename(st$script)), log_path)
-        cmd_main <- sprintf('Rscript "%s" --output-dir="%s"', st$script, params$project_dir)
-        status_main <- system(cmd_main)
-        if (status_main != 0) {
-          log_msg("ERROR", sprintf("Primary script execution returned exit code %d", status_main), log_path)
-          if (!params$force) stop("Pipeline halted.")
-        }
-      } else {
-        log_msg("WARN", sprintf("Script file not found at '%s'. Simulating/skipping execution.", st$script), log_path)
-      }
+    log_msg("STAGE", sprintf("begin %02d %s", st$stage_num, st$id), log_path)
+    if (any(grepl("[{}]", c(st$inputs, st$outputs), perl = TRUE))) contract_stop(sprintf("placeholder in stage %s path", st$id))
+    missing_scripts <- st$scripts[!file.exists(st$scripts)]
+    if (length(missing_scripts) > 0) {
+      status <- "failure"; reason <- sprintf("missing declared stage script(s): %s", paste(basename(missing_scripts), collapse = ", "))
+      halted <- TRUE
+      code <- 1L; command <- character()
+    } else if (params$dry_run) {
+      status <- "skipped"; reason <- "dry-run: execution intentionally not performed"
+      code <- 0L; command <- character()
+    } else if (length(st$inputs[!file.exists(st$inputs)]) > 0) {
+      missing_inputs <- st$inputs[!file.exists(st$inputs)]
+      status <- "failure"; reason <- sprintf("missing stage input(s): %s", paste(basename(missing_inputs), collapse = ", "))
+      halted <- TRUE
+      code <- 1L; command <- character()
     } else {
-      log_msg("DRYRUN", sprintf("Would execute script: %s", basename(st$script)), log_path)
+      script_results <- list(); code <- 0L; command <- character()
+      for (idx in seq_along(st$scripts)) {
+        if (!file.exists(st$scripts[[idx]])) {
+          code <- 1L; reason <- sprintf("missing declared stage script: %s", st$scripts[[idx]]); break
+        }
+        result <- run_child(st$scripts[[idx]], st$args[[idx]], log_path)
+        script_results[[idx]] <- result
+        command <- c(command, result$command)
+        if (result$code != 0L) {
+          code <- result$code
+          contract_lines <- grep("\\[CONTRACT ERROR\\]", result$output, value = TRUE)
+          detail <- if (length(contract_lines) > 0) paste0("; ", tail(contract_lines, 1L)) else ""
+          reason <- sprintf("child command exited %d: %s%s", result$code, basename(st$scripts[[idx]]), detail)
+          break
+        }
+      }
+      if (code == 0L) {
+        gate <- content_gate(st, st$outputs, params$project_dir)
+        status <- gate$status; reason <- gate$reason
+        if (status == "failure") code <- 1L
+      } else {
+        status <- "failure"
+      }
+      if (status %in% c("failure", "negative")) halted <- TRUE
     }
-    
-    # 3. Perform Stage-Gate QC Verification
-    gate_res <- st$gate_check(params$project_dir)
-    gate_status <- if (gate_res$passed) "PASSED" else "FAILED"
-    log_msg("GATE", sprintf("Stage %02d Gate [%s]: %s", st$stage_num, gate_status, gate_res$detail), log_path)
-    
-    gate_records[[length(gate_records) + 1]] <- data.frame(
-      Stage = st$stage_num,
-      Skill_ID = st$id,
-      Name = st$name,
-      Status = gate_status,
-      Detail = gate_res$detail,
-      Timestamp = format(Sys.time(), "%Y-%m-%d %H:%M:%S"),
-      stringsAsFactors = FALSE
-    )
-    
-    if (!gate_res$passed && !params$dry_run && !params$force) {
-      log_msg("CRITICAL", sprintf("Stage %02d failed quality gate! Halting pipeline execution.", st$stage_num), log_path)
-      break
+    if (status == "failure") halted <- TRUE
+    record <- write_stage_status(manifest, st$id, status, reason, command, st$inputs, st$outputs,
+                                 metadata$sample_id, status_path = file.path(params$project_dir, "status", paste0(st$id, ".json")), exit_code = code)
+    update_manifest_stage(params$manifest, st$id, status, reason, st$inputs, st$outputs)
+    statuses[[st$id]] <- record
+    log_msg(if (status == "success") "SUCCESS" else if (status == "negative") "NEGATIVE" else if (status == "skipped") "SKIP" else "ERROR",
+            sprintf("stage %02d status=%s reason=%s", st$stage_num, status, reason), log_path)
+  }
+  status_values <- vapply(statuses, function(x) x$status, character(1))
+  aggregate <- if ("failure" %in% status_values) list(overall_status = "failure", overall_success = FALSE, exit_code = 1L)
+               else if ("manual_review" %in% status_values) list(overall_status = "manual_review", overall_success = FALSE, exit_code = 0L)
+               else if ("skipped" %in% status_values) list(overall_status = "skipped", overall_success = FALSE, exit_code = 0L)
+               else if ("negative" %in% status_values) list(overall_status = "negative", overall_success = FALSE, exit_code = 0L)
+               else list(overall_status = "success", overall_success = TRUE, exit_code = 0L)
+  output_records <- list()
+  for (st in stages) {
+    for (path in st$outputs[file.exists(st$outputs)]) {
+      output_records[[length(output_records) + 1L]] <- list(
+        path = path, sha256 = sha256_file(path), producer_stage = st$id
+      )
     }
   }
-  
-  # Export Consolidated Gate Report
-  gate_df <- do.call(rbind, gate_records)
-  write.csv(gate_df, file = report_path, row.names = FALSE)
-  log_msg("SUCCESS", sprintf("Consolidated Gate summary saved to: %s", report_path), log_path)
-  
-  cat("\n======================================================================\n")
-  cat("                 PIPELINE RUN SUMMARY REPORT                          \n")
-  cat("======================================================================\n")
-  print(gate_df[, c("Stage", "Skill_ID", "Status", "Detail")])
-  cat("======================================================================\n")
+  report <- list(run_id = params$run_id, source_revision = params$source_revision,
+                 overall_status = aggregate$overall_status, overall_success = aggregate$overall_success,
+                 exit_code = aggregate$exit_code, stages = unname(statuses), outputs = output_records,
+                 manual_changes = manifest$manual_changes, external_blockers = list())
+  write_json_contract(report, file.path(params$project_dir, params$report_json))
+  gate_rows <- lapply(statuses, function(x) data.frame(
+    Stage = x$stage_id, Status = x$status, Reason = x$reason, ExitCode = x$exit_code,
+    stringsAsFactors = FALSE
+  ))
+  if (length(gate_rows) > 0) write.csv(do.call(rbind, gate_rows), file.path(params$project_dir, params$gate_report), row.names = FALSE)
+  log_msg(if (aggregate$overall_success) "SUCCESS" else "STOP", sprintf("overall_status=%s exit_code=%d", aggregate$overall_status, aggregate$exit_code), log_path)
+  quit(status = aggregate$exit_code)
 }
 
 if (!interactive()) {
-  main()
+  tryCatch(main(), error = function(error) {
+    cat(sprintf("[ERROR] %s\n", conditionMessage(error)))
+    quit(status = 1)
+  })
 }

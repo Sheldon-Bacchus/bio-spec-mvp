@@ -3,6 +3,13 @@
 # venn_intersection.R - Multi-gene Set Intersection and Venn Diagram Generation
 # ==============================================================================
 # Skill: bio-06-gene-intersection
+# Shared run and provenance contracts.
+file_arg <- grep("^--file=", commandArgs(trailingOnly = FALSE), value = TRUE)
+script_dir <- if (length(file_arg) > 0) dirname(normalizePath(sub("^--file=", "", file_arg[1]), winslash = "/", mustWork = FALSE)) else getwd()
+contract_helper <- Sys.getenv("BIO_PIPELINE_CONTRACT_HELPER", "")
+if (!nzchar(contract_helper)) contract_helper <- file.path(dirname(dirname(script_dir)), "bio-pipeline-orchestrator", "scripts", "contract_helpers.R")
+if (!file.exists(contract_helper)) stop("[CONTRACT ERROR] contract_helpers.R not found", call. = FALSE)
+source(contract_helper)
 # Description: Takes candidate genes from WGCNA key modules and limma DEGs,
 #              calculates their intersection, plots a publication-ready Venn
 #              diagram, and exports candidate hub genes.
@@ -13,9 +20,6 @@ suppressPackageStartupMessages({
   library(VennDiagram)
   library(grid)
 })
-
-# Disable VennDiagram logging to log file (redirect to console/suppress)
-futile.logger::flog.threshold(futile.logger::ERROR, name = "VennDiagramLogger")
 
 # Set random seed for reproducibility
 set.seed(12345)
@@ -30,7 +34,9 @@ parse_args <- function() {
     output_genes = "candidate_hub_genes.txt",
     output_plot = "venn_plot.pdf",
     wgcna_col = NULL,
-    deg_col = NULL
+    deg_col = NULL,
+    manifest = "",
+    source_revision = ""
   )
   
   for (arg in args) {
@@ -48,6 +54,10 @@ parse_args <- function() {
       params$wgcna_col <- sub("^--wgcna-col=", "", arg)
     } else if (grepl("^--deg-col=", arg)) {
       params$deg_col <- sub("^--deg-col=", "", arg)
+    } else if (grepl("^--manifest=", arg)) {
+      params$manifest <- sub("^--manifest=", "", arg)
+    } else if (grepl("^--source-revision=", arg)) {
+      params$source_revision <- sub("^--source-revision=", "", arg)
     } else if (arg %in% c("-h", "--help")) {
       cat("Usage: Rscript venn_intersection.R [options]\n")
       cat("Options:\n")
@@ -66,61 +76,50 @@ parse_args <- function() {
 
 # Helper to read gene list from various formats (.csv, .txt, .tsv)
 read_gene_list <- function(file_path, specified_col = NULL, label = "dataset") {
-  if (!file.exists(file_path)) {
-    stop(sprintf("[ERROR] Input file does not exist: %s (%s)", file_path, label))
-  }
-  
+  file_path <- assert_explicit_path(file_path, label, must_exist = TRUE)
   cat(sprintf("[INFO] Reading %s from: %s\n", label, file_path))
-  
-  # Try tab-separated first, then comma-separated
-  content <- tryCatch({
-    # Check first line to detect separator
-    first_line <- readLines(file_path, n = 1, warn = FALSE)
-    sep <- if (grepl(",", first_line)) "," else "\t"
-    read.table(file_path, header = TRUE, sep = sep, stringsAsFactors = FALSE, 
-               check.names = FALSE, quote = "\"'", fill = TRUE)
-  }, error = function(e) {
-    # Fallback to single column vector
-    readLines(file_path, warn = FALSE)
-  })
-  
-  if (is.vector(content) && !is.data.frame(content)) {
-    genes <- trimws(content)
-    genes <- genes[genes != "" & !is.na(genes)]
-    return(unique(genes))
-  }
-  
-  df <- content
-  if (ncol(df) == 1) {
-    genes <- as.character(df[[1]])
-  } else if (!is.null(specified_col) && specified_col %in% colnames(df)) {
-    genes <- as.character(df[[specified_col]])
+  lines <- readLines(file_path, warn = FALSE)
+  if (length(lines) == 0) return(character())
+  first_line <- trimws(lines[[1]])
+  has_header <- grepl("(^|[\\t,])(gene|genes|genename|genesymbol|symbol|id)([\\t,]|$)", first_line, ignore.case = TRUE)
+  if (!has_header) {
+    genes <- trimws(gsub("[\\\"']", "", lines))
   } else {
-    # Auto-detect gene symbol column
-    candidate_cols <- c("geneNames", "gene", "Gene", "genes", "Symbol", "symbol", 
-                        "gene_name", "GeneSymbol", "ID", "id", "row.names")
-    match_idx <- which(colnames(df) %in% candidate_cols)
-    if (length(match_idx) > 0) {
-      genes <- as.character(df[[match_idx[1]]])
+    sep <- if (grepl(",", first_line, fixed = TRUE)) "," else "\t"
+    df <- if (sep == ",") {
+      read.csv(file_path, header = TRUE, stringsAsFactors = FALSE, check.names = FALSE)
     } else {
-      # Use first column or row names if first column is numeric
-      if (is.numeric(df[[1]]) && !is.null(rownames(df))) {
-        genes <- rownames(df)
-      } else {
-        genes <- as.character(df[[1]])
-      }
+      read.table(file_path, header = TRUE, sep = sep, stringsAsFactors = FALSE,
+                 check.names = FALSE, quote = "\"'", fill = TRUE, comment.char = "")
     }
+    if (!is.null(specified_col) && specified_col %in% colnames(df)) {
+      genes <- as.character(df[[specified_col]])
+    } else {
+      candidates <- c("geneNames", "gene", "Gene", "genes", "Symbol", "symbol",
+                      "gene_name", "GeneSymbol", "ID", "id")
+      match_idx <- which(colnames(df) %in% candidates)
+      genes <- as.character(df[[if (length(match_idx) > 0) match_idx[[1]] else 1]])
+    }
+    genes <- trimws(gsub("[\\\"']", "", genes))
   }
-  
-  genes <- trimws(genes)
-  genes <- genes[genes != "" & !is.na(genes)]
-  genes <- unique(genes)
+  genes <- unique(genes[!is.na(genes) & nzchar(genes)])
   cat(sprintf("[INFO] Extracted %d unique genes from %s\n", length(genes), label))
-  return(genes)
+  genes
 }
 
 main <- function() {
   params <- parse_args()
+
+  if (!nzchar(params$manifest)) {
+    contract_stop("--manifest is required for an auditable intersection run")
+  }
+  params$manifest <- assert_explicit_path(params$manifest, "manifest", must_exist = TRUE)
+  manifest <- validate_manifest_context(
+    params$manifest,
+    source_revision = if (nzchar(params$source_revision)) params$source_revision else NULL
+  )
+  params$wgcna_file <- assert_explicit_path(params$wgcna_file, "WGCNA gene list", must_exist = TRUE)
+  params$deg_file <- assert_explicit_path(params$deg_file, "DEG gene list", must_exist = TRUE)
   
   # Ensure output directory exists
   if (!dir.exists(params$output_dir)) {
@@ -144,14 +143,6 @@ main <- function() {
   cat(sprintf("Intersection (Candidate): %d\n", n_intersect))
   cat("========================================================\n")
   
-  # QC Gate Check: Candidate hub genes >= 2
-  if (n_intersect < 2) {
-    warning(sprintf("[GATE WARNING] Candidate hub genes count (%d) is less than the gate threshold of 2.", n_intersect))
-    if (n_intersect == 0) {
-      stop("[GATE ERROR] Zero intersecting genes found between WGCNA and limma DEG sets! Aborting.")
-    }
-  }
-  
   # Export candidate hub gene list (Constitution contract: single column, no header, no quotes)
   write.table(
     candidate_hub_genes,
@@ -163,40 +154,44 @@ main <- function() {
   )
   cat(sprintf("[SUCCESS] Saved candidate hub genes to: %s\n", out_genes_path))
   
-  # Generate publication-quality Venn Diagram
-  gene_list <- list(
-    "WGCNA Module" = wgcna_genes,
-    "Limma DEGs" = deg_genes
-  )
-  
-  venn_plot <- venn.diagram(
-    x = gene_list,
-    filename = NULL, # Render to grid object
-    col = "transparent",
-    fill = c("#3B82F6", "#EF4444"),
-    alpha = c(0.5, 0.5),
-    cex = 1.4,
-    fontfamily = "sans",
-    fontface = "bold",
-    cat.col = c("#1E40AF", "#991B1B"),
-    cat.cex = 1.2,
-    cat.fontfamily = "sans",
-    cat.fontface = "bold",
-    cat.default.pos = "outer",
-    cat.pos = c(-20, 20),
-    cat.dist = c(0.05, 0.05),
-    margin = 0.1
-  )
-  
+  # Generate the diagnostic plot. An empty intersection is a valid negative
+  # result, so it receives a text-only PDF instead of a union/top-N substitute.
   pdf(file = out_plot_path, width = 6.5, height = 6)
-  grid.draw(venn_plot)
+  if (n_intersect == 0) {
+    plot.new()
+    text(0.5, 0.6, "Empty candidate intersection", cex = 1.2)
+    text(0.5, 0.4, "Status: negative; no union fallback", cex = 0.9)
+  } else {
+    gene_list <- list("WGCNA Module" = wgcna_genes, "Limma DEGs" = deg_genes)
+    venn_plot <- venn.diagram(
+      x = gene_list, filename = NULL, col = "transparent",
+      fill = c("#3B82F6", "#EF4444"), alpha = c(0.5, 0.5), cex = 1.4,
+      fontfamily = "sans", fontface = "bold",
+      cat.col = c("#1E40AF", "#991B1B"), cat.cex = 1.2,
+      cat.fontfamily = "sans", cat.fontface = "bold",
+      cat.default.pos = "outer", cat.pos = c(-20, 20),
+      cat.dist = c(0.05, 0.05), margin = 0.1
+    )
+    grid.draw(venn_plot)
+  }
   dev.off()
   cat(sprintf("[SUCCESS] Saved Venn diagram to: %s\n", out_plot_path))
   
   # Summary output for downstream integration
   cat("\nTop Candidate Hub Genes:\n")
   print(head(candidate_hub_genes, 20))
-  cat("\n[STAGE COMPLETE] bio-06-gene-intersection finished successfully.\n")
+  summary_path <- file.path(params$output_dir, "intersection_status.json")
+  status <- if (n_intersect > 0) "success" else "negative"
+  reason <- if (n_intersect > 0) "declared WGCNA/DEG intersection computed" else "declared WGCNA/DEG intersection is empty; no union fallback"
+  write_stage_status(
+    manifest, "bio-06-gene-intersection", status, reason,
+    commandArgs(trailingOnly = FALSE), c(params$wgcna_file, params$deg_file),
+     c(out_genes_path, out_plot_path, summary_path),
+    character(), status_path = file.path(params$output_dir, "status", "bio-06-gene-intersection.json"),
+    exit_code = 0
+  )
+  write_json_contract(list(status = status, reason = reason, candidate_count = n_intersect), summary_path)
+  cat(sprintf("\n[STAGE %s] bio-06-gene-intersection finished: %s.\n", toupper(status), reason))
 }
 
 # Run main if invoked directly

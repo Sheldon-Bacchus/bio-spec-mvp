@@ -9,6 +9,13 @@
 # Reproducibility: set.seed(12345)
 # ==============================================================================
 
+file_arg <- grep("^--file=", commandArgs(trailingOnly = FALSE), value = TRUE)
+script_dir <- if (length(file_arg) > 0) dirname(normalizePath(sub("^--file=", "", file_arg[1]), winslash = "/", mustWork = FALSE)) else getwd()
+contract_helper <- Sys.getenv("BIO_PIPELINE_CONTRACT_HELPER", "")
+if (!nzchar(contract_helper)) contract_helper <- file.path(dirname(dirname(script_dir)), "bio-pipeline-orchestrator", "scripts", "contract_helpers.R")
+if (!file.exists(contract_helper)) stop("[CONTRACT ERROR] contract_helpers.R not found", call. = FALSE)
+source(contract_helper)
+
 suppressPackageStartupMessages({
   library(ggplot2)
   library(gridExtra)
@@ -28,9 +35,8 @@ parse_args <- function(defaults) {
     if (grepl("^--", arg)) {
       key_val <- sub("^--", "", arg)
       if (grepl("=", key_val)) {
-        parts <- strsplit(key_val, "=", fixed = TRUE)[[1]]
-        key <- gsub("-", "_", parts[1])
-        res[[key]] <- parts[2]
+        key <- gsub("-", "_", sub("=.*$", "", key_val))
+        res[[key]] <- sub("^[^=]*=", "", key_val)
       } else if (i + 1 <= length(args) && !grepl("^--", args[i + 1])) {
         res[[gsub("-", "_", key_val)]] <- args[i + 1]
         i <- i + 1
@@ -47,8 +53,10 @@ parse_args <- function(defaults) {
 # Defaults
 # ------------------------------------------------------------------------------
 defaults <- list(
-  input = "merge.normalize.txt",
-  pd = "PD.csv",
+  input = "",
+  metadata = "",
+  manifest = "",
+  source_revision = "",
   group_col = "group",
   batch_col = "batch",
   outdir = ".",
@@ -56,6 +64,18 @@ defaults <- list(
 )
 
 opt <- parse_args(defaults)
+
+if (!nzchar(opt$input) || !nzchar(opt$metadata) || !nzchar(opt$manifest)) {
+  contract_stop("--input, --metadata, and --manifest are required; PCA metadata inference is disabled")
+}
+opt$input <- assert_explicit_path(opt$input, "PCA expression matrix", must_exist = TRUE)
+opt$metadata <- assert_explicit_path(opt$metadata, "sample metadata", must_exist = TRUE)
+opt$manifest <- assert_explicit_path(opt$manifest, "manifest", must_exist = TRUE)
+manifest <- validate_manifest_context(
+  opt$manifest,
+  source_revision = if (nzchar(opt$source_revision)) opt$source_revision else NULL,
+  metadata_path = opt$metadata
+)
 
 if (!dir.exists(opt$outdir)) {
   dir.create(opt$outdir, recursive = TRUE, showWarnings = FALSE)
@@ -66,57 +86,23 @@ cat(sprintf("[INFO] Starting PCA QC Analysis on %s\n", opt$input))
 # ------------------------------------------------------------------------------
 # Step 1: Read Expression Matrix
 # ------------------------------------------------------------------------------
-if (!file.exists(opt$input)) {
-  stop(sprintf("[ERROR] Input expression matrix not found: %s", opt$input))
-}
-
-exp_df <- read.table(opt$input, header = TRUE, sep = "\t", quote = "", check.names = FALSE, fill = TRUE)
-genes <- as.character(exp_df[[1]])
-exp_mat <- as.matrix(exp_df[, -1, drop = FALSE])
-rownames(exp_mat) <- genes
-mode(exp_mat) <- "numeric"
+metadata_contract <- read_metadata_contract(opt$metadata)
+exp_mat <- read_expression_matrix_contract(opt$input, metadata_contract)
 
 cat(sprintf("[INFO] Loaded expression matrix: %d genes across %d samples\n", nrow(exp_mat), ncol(exp_mat)))
 
 # ------------------------------------------------------------------------------
-# Step 2: Read Metadata / Infer Groups and Batches
+# Step 2: Read Canonical Metadata
 # ------------------------------------------------------------------------------
 sample_names <- colnames(exp_mat)
-meta_df <- data.frame(sample = sample_names, stringsAsFactors = FALSE)
-
-if (file.exists(opt$pd)) {
-  cat(sprintf("[INFO] Reading phenotype metadata from %s\n", opt$pd))
-  pd <- if (grepl("\\.csv$", opt$pd, ignore.case = TRUE)) {
-    read.csv(opt$pd, stringsAsFactors = FALSE)
-  } else {
-    read.table(opt$pd, header = TRUE, sep = "\t", stringsAsFactors = FALSE, check.names = FALSE)
-  }
-  
-  sample_col <- if ("sample" %in% colnames(pd)) "sample" else colnames(pd)[1]
-  
-  # Match samples
-  m_idx <- match(sample_names, pd[[sample_col]])
-  if (any(is.na(m_idx))) {
-    # Try match after stripping prefix (e.g. GSE10030_GSM...)
-    stripped <- sub("^[^_]+_", "", sample_names)
-    m_idx <- match(stripped, pd[[sample_col]])
-  }
-  
-  if (opt$group_col %in% colnames(pd) && !all(is.na(m_idx))) {
-    meta_df$Group <- pd[[opt$group_col]][m_idx]
-  } else {
-    meta_df$Group <- ifelse(grepl("biofilm|treat|tumor|case", sample_names, ignore.case = TRUE), "Biofilm", "Planktonic")
-  }
-  
-  if (opt$batch_col %in% colnames(pd) && !all(is.na(m_idx))) {
-    meta_df$Batch <- pd[[opt$batch_col]][m_idx]
-  } else {
-    meta_df$Batch <- sapply(strsplit(sample_names, "_"), `[`, 1)
-  }
-} else {
-  cat("[WARN] Phenotype file not provided or not found. Inferring metadata from sample names.\n")
-  meta_df$Group <- ifelse(grepl("biofilm|treat|tumor|case", sample_names, ignore.case = TRUE), "Biofilm", "Planktonic")
-  meta_df$Batch <- sapply(strsplit(sample_names, "_"), `[`, 1)
+meta_df <- data.frame(
+  sample_id = metadata_contract$sample_id,
+  Group = metadata_contract$group,
+  Batch = metadata_contract$batch,
+  stringsAsFactors = FALSE
+)
+if (!identical(as.character(sample_names), as.character(meta_df$sample_id))) {
+  contract_stop("sample_order_mismatch: PCA matrix and canonical metadata differ")
 }
 
 # Ensure factors
@@ -197,3 +183,16 @@ grid.arrange(p_group, p_batch, ncol = 2)
 dev.off()
 
 cat(sprintf("[SUCCESS] PCA QC completed successfully. File generated: %s\n", out_pdf_path))
+
+write_stage_status(
+  manifest,
+  "bio-02-batch-norm-pca-qc",
+  "success",
+  "PCA QC rendered from canonical sample, group, and batch metadata",
+  commandArgs(trailingOnly = FALSE),
+  c(opt$input, opt$metadata),
+  out_pdf_path,
+  sample_names,
+  status_path = file.path(opt$outdir, "status", "bio-02-batch-norm-pca-qc.json"),
+  exit_code = 0
+)

@@ -14,7 +14,8 @@ description: >-
 
 ### 输入
 - 候选基因表达矩阵（`merged_file.txt`）
-- `--group` — 分组 metadata CSV（sample, group 列；**必传**）
+- `--metadata` — canonical sample metadata CSV/TSV（sample_id, group, partition 等列；**必传**）
+- `--manifest` / `--source-revision` — 当前运行 manifest 和源版本（**必传**）
 
 ### 输出
 - `richness.txt` — 变量重要性得分表（含**真实**置换检验 p 值）
@@ -24,7 +25,7 @@ description: >-
 ## 执行步骤
 
 1. 运行 [random_forest_importance.R](./scripts/random_forest_importance.R)：
-   - `set.seed(12345)`；分组来自 --group（fail-closed）
+   - `set.seed(12345)`；分组来自 --metadata（fail-closed），只在 discovery partition 选择特征
    - rfPermute 或内置置换检验（nrep=299, cores 可配）
    - 每个置换核对 rownames 对齐（防错位）
    - 提取 `importance()` 得分矩阵 + 真实 p 值
@@ -35,4 +36,4 @@ description: >-
 - **禁止伪造 p 值**（如固定 0.02）；无有效 p 值来源时报错退出（G-04）
 
 ## 版本说明
-- 2026-09-03 (spec-007): 删假 p=0.02（F-08 收窄确认）；置换 rownames 对齐校验；group fail-closed
+- 2026-09-15 (spec-008): canonical metadata/manifest contract；discovery-only selection；real permutation p-values；typed negative without top-N fallback

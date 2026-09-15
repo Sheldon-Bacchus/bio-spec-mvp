@@ -9,6 +9,15 @@
 # Reproducibility: set.seed(12345)
 # ==============================================================================
 
+# Shared contract helpers. A stage may only run with a run manifest and canonical
+# metadata; the helper is also available when this script is invoked directly.
+file_arg <- grep("^--file=", commandArgs(trailingOnly = FALSE), value = TRUE)
+script_dir <- if (length(file_arg) > 0) dirname(normalizePath(sub("^--file=", "", file_arg[1]), winslash = "/", mustWork = FALSE)) else getwd()
+contract_helper <- Sys.getenv("BIO_PIPELINE_CONTRACT_HELPER", "")
+if (!nzchar(contract_helper)) contract_helper <- file.path(dirname(dirname(script_dir)), "bio-pipeline-orchestrator", "scripts", "contract_helpers.R")
+if (!file.exists(contract_helper)) stop("[CONTRACT ERROR] contract_helpers.R not found", call. = FALSE)
+source(contract_helper)
+
 # Explicit library imports
 suppressPackageStartupMessages({
   library(limma)
@@ -31,9 +40,8 @@ parse_args <- function(defaults) {
     if (grepl("^--", arg)) {
       key_val <- sub("^--", "", arg)
       if (grepl("=", key_val)) {
-        parts <- strsplit(key_val, "=", fixed = TRUE)[[1]]
-        key <- gsub("-", "_", parts[1])
-        res[[key]] <- parts[2]
+        key <- gsub("-", "_", sub("=.*$", "", key_val))
+        res[[key]] <- sub("^[^=]*=", "", key_val)
       } else if (i + 1 <= length(args) && !grepl("^--", args[i + 1])) {
         res[[gsub("-", "_", key_val)]] <- args[i + 1]
         i <- i + 1
@@ -50,11 +58,14 @@ parse_args <- function(defaults) {
 # Default configuration
 # ------------------------------------------------------------------------------
 defaults <- list(
-  matrix = "biofilm.probeid.exprs.txt",      # Probe expression matrix or series matrix
-  platform = "GPL84.txt",                    # Platform annotation table (Probe ID to Symbol)
+  matrix = "",                               # Explicit probe/gene expression matrix
+  platform = "",                             # Optional platform annotation table
   probe_col = "ID",                          # Column name or index for probe ID in annotation
   symbol_col = "Gene.Symbol",                # Column name or index for gene symbol in annotation
-  gse_id = "GSE10030",                       # Dataset accession identifier
+  gse_id = "",                               # Dataset/run identifier
+  metadata = "",                             # Canonical sample metadata CSV/TSV
+  manifest = "",                             # Run manifest JSON
+  source_revision = "",
   outdir = ".",                              # Output directory
   k = "10",                                  # KNN neighbors
   rowmax = "0.5",                            # Max allowable missing fraction per gene
@@ -68,6 +79,21 @@ opt$k <- as.integer(opt$k)
 opt$rowmax <- as.numeric(opt$rowmax)
 opt$colmax <- as.numeric(opt$colmax)
 
+if (!nzchar(opt$matrix) || !nzchar(opt$metadata) || !nzchar(opt$manifest) || !nzchar(opt$gse_id)) {
+  contract_stop("--matrix, --metadata, --manifest, and --gse-id are required; sample groups may not be inferred")
+}
+opt$matrix <- assert_explicit_path(opt$matrix, "expression matrix", must_exist = TRUE)
+opt$metadata <- assert_explicit_path(opt$metadata, "sample metadata", must_exist = TRUE)
+opt$manifest <- assert_explicit_path(opt$manifest, "manifest", must_exist = TRUE)
+stage_input_paths <- c(opt$matrix, opt$metadata)
+if (nzchar(opt$platform)) stage_input_paths <- c(stage_input_paths, opt$platform)
+manifest <- validate_manifest_context(
+  opt$manifest,
+  source_revision = if (nzchar(opt$source_revision)) opt$source_revision else NULL,
+  metadata_path = opt$metadata,
+  input_paths = stage_input_paths
+)
+
 if (!dir.exists(opt$outdir)) {
   dir.create(opt$outdir, recursive = TRUE, showWarnings = FALSE)
 }
@@ -80,27 +106,17 @@ cat(sprintf("[INFO] Output directory: %s\n", opt$outdir))
 # ------------------------------------------------------------------------------
 # Step 1: Read Expression Matrix
 # ------------------------------------------------------------------------------
-if (!file.exists(opt$matrix)) {
-  stop(sprintf("[ERROR] Input matrix file does not exist: %s", opt$matrix))
-}
-
 cat("[INFO] Reading raw expression matrix...\n")
-raw_mat <- read.table(opt$matrix, header = TRUE, sep = "\t", check.names = FALSE, quote = "", fill = TRUE)
-
-# Determine probe column (first column by default)
-probe_col_idx <- 1
-probe_ids <- as.character(raw_mat[[probe_col_idx]])
-sample_exprs <- as.matrix(raw_mat[, -probe_col_idx, drop = FALSE])
-rownames(sample_exprs) <- probe_ids
-
-# Ensure numeric values
-mode(sample_exprs) <- "numeric"
+metadata_contract <- read_metadata_contract(opt$metadata)
+sample_exprs <- read_expression_matrix_contract(opt$matrix, metadata_contract)
+probe_ids <- rownames(sample_exprs)
 cat(sprintf("[INFO] Loaded matrix with %d probes and %d samples\n", nrow(sample_exprs), ncol(sample_exprs)))
 
 # ------------------------------------------------------------------------------
 # Step 2: Read Platform Annotation and Map Probes to Gene Symbols
 # ------------------------------------------------------------------------------
-if (file.exists(opt$platform)) {
+if (nzchar(opt$platform)) {
+  opt$platform <- assert_explicit_path(opt$platform, "platform annotation", must_exist = TRUE)
   cat("[INFO] Reading platform annotation file...\n")
   anno <- read.table(opt$platform, header = TRUE, sep = "\t", quote = "", check.names = FALSE, fill = TRUE, stringsAsFactors = FALSE)
   
@@ -136,7 +152,7 @@ if (file.exists(opt$platform)) {
   matched_symbols <- anno_map$Symbol[match(matched_probes, anno_map$ProbeID)]
   
 } else {
-  cat(sprintf("[WARN] Annotation platform file '%s' not found. Assuming matrix rownames are already gene symbols.\n", opt$platform))
+  cat("[INFO] No platform annotation supplied; matrix IDs are treated as canonical gene identifiers.\n")
   matched_exprs <- sample_exprs
   matched_symbols <- rownames(sample_exprs)
 }
@@ -204,28 +220,12 @@ group_file <- file.path(opt$outdir, "group.txt")
 pd_csv_file <- file.path(opt$outdir, "PD.csv")
 
 samples <- colnames(gene_exprs)
-sample_groups <- rep("Unknown", length(samples))
-
-if (nchar(opt$sample_con) > 0 || nchar(opt$sample_treat) > 0) {
-  con_vec <- trimws(unlist(strsplit(opt$sample_con, ",")))
-  treat_vec <- trimws(unlist(strsplit(opt$sample_treat, ",")))
-  
-  sample_groups[samples %in% con_vec] <- "Control"
-  sample_groups[samples %in% treat_vec] <- "Treat"
-} else {
-  # Infer groups if sample names contain hints or split into halves
-  is_control <- grepl("control|planktonic|norm|mock|wt|con|_p", samples, ignore.case = TRUE)
-  is_treat <- grepl("treat|biofilm|tumor|mutant|case|_t", samples, ignore.case = TRUE)
-  
-  if (any(is_control) || any(is_treat)) {
-    sample_groups[is_control] <- "Control"
-    sample_groups[is_treat] <- "Treat"
-  } else {
-    stop("[ERROR] Cannot infer sample groups: no --sample-con/--sample-treat given and sample names carry no group hint. Provide explicit grouping (fail-closed per contracts G-02).")
-  }
+if (!identical(as.character(samples), as.character(metadata_contract$sample_id))) {
+  contract_stop("sample_order_mismatch after preprocessing: matrix columns and canonical metadata differ")
 }
-
-group_df <- data.frame(sample = samples, group = sample_groups, stringsAsFactors = FALSE)
+group_df <- metadata_contract
+group_df$sample <- group_df$sample_id
+group_df <- group_df[, c("sample", "sample_id", "group", "species", "id_type", "batch", "partition"), drop = FALSE]
 cat(sprintf("[INFO] Exporting sample grouping to %s and %s\n", group_file, pd_csv_file))
 write.table(group_df, file = group_file, sep = "\t", quote = FALSE, row.names = FALSE)
 write.csv(group_df, file = pd_csv_file, row.names = FALSE, quote = FALSE)
@@ -237,6 +237,21 @@ stopifnot("Gate Fail: Normalized matrix file missing" = file.exists(out_norm_fil
 stopifnot("Gate Fail: Normalized matrix is empty" = nrow(gene_exprs) > 0)
 stopifnot("Gate Fail: Sample count mismatch between group and matrix" = nrow(group_df) == ncol(gene_exprs))
 stopifnot("Gate Fail: Missing values remain in final matrix" = sum(is.na(gene_exprs)) == 0)
+
+if (exists("write_stage_status") && nzchar(opt$manifest)) {
+  write_stage_status(
+    manifest,
+    "bio-01-geo-dataprep",
+    "success",
+    "canonical matrix and metadata contract passed",
+    commandArgs(trailingOnly = FALSE),
+    c(opt$matrix, opt$metadata),
+    c(out_norm_file, group_file, pd_csv_file),
+    samples,
+    status_path = file.path(opt$outdir, "status", "bio-01-geo-dataprep.json"),
+    exit_code = 0
+  )
+}
 
 cat(sprintf("[SUCCESS] Stage 01 GEO Preprocessing complete: %d genes across %d samples.\n",
             nrow(gene_exprs), ncol(gene_exprs)))

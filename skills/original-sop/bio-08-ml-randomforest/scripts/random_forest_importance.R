@@ -8,6 +8,13 @@
 #              Generates significance-annotated importance plots and exports key features.
 # ==============================================================================
 
+file_arg <- grep("^--file=", commandArgs(trailingOnly = FALSE), value = TRUE)
+script_dir <- if (length(file_arg) > 0) dirname(normalizePath(sub("^--file=", "", file_arg[1]), winslash = "/", mustWork = FALSE)) else getwd()
+contract_helper <- Sys.getenv("BIO_PIPELINE_CONTRACT_HELPER", "")
+if (!nzchar(contract_helper)) contract_helper <- file.path(dirname(dirname(script_dir)), "bio-pipeline-orchestrator", "scripts", "contract_helpers.R")
+if (!file.exists(contract_helper)) stop("[CONTRACT ERROR] contract_helpers.R not found", call. = FALSE)
+source(contract_helper)
+
 # Explicit library imports
 suppressPackageStartupMessages({
   library(randomForest)
@@ -24,8 +31,11 @@ set.seed(12345)
 parse_args <- function() {
   args <- commandArgs(trailingOnly = TRUE)
   params <- list(
-    input_file = "merged_file.txt",
-    group_file = NULL,
+    input_file = "",
+    group_file = "",
+    metadata = "",
+    manifest = "",
+    source_revision = "",
     output_dir = ".",
     output_richness = "richness.txt",
     output_genes = "rf_genes.txt",
@@ -41,6 +51,12 @@ parse_args <- function() {
       params$input_file <- sub("^--input=", "", arg)
     } else if (grepl("^--group=", arg)) {
       params$group_file <- sub("^--group=", "", arg)
+    } else if (grepl("^--metadata=", arg)) {
+      params$metadata <- sub("^--metadata=", "", arg)
+    } else if (grepl("^--manifest=", arg)) {
+      params$manifest <- sub("^--manifest=", "", arg)
+    } else if (grepl("^--source-revision=", arg)) {
+      params$source_revision <- sub("^--source-revision=", "", arg)
     } else if (grepl("^--output-dir=", arg)) {
       params$output_dir <- sub("^--output-dir=", "", arg)
     } else if (grepl("^--output-richness=", arg)) {
@@ -61,7 +77,9 @@ parse_args <- function() {
       cat("Usage: Rscript random_forest_importance.R [options]\n")
       cat("Options:\n")
       cat("  --input=<path>            Path to expression matrix [default: merged_file.txt]\n")
-      cat("  --group=<path>            Optional sample group CSV metadata file\n")
+      cat("  --metadata=<path>         Canonical sample metadata CSV/TSV (required)\n")
+      cat("  --manifest=<path>         Run manifest (required)\n")
+      cat("  --source-revision=<s>     Source revision recorded in status (required)\n")
       cat("  --output-dir=<dir>        Directory for outputs [default: .]\n")
       cat("  --output-richness=<file>  Filename for importance table [default: richness.txt]\n")
       cat("  --output-genes=<file>     Filename for significant genes [default: rf_genes.txt]\n")
@@ -78,51 +96,39 @@ parse_args <- function() {
 
 main <- function() {
   params <- parse_args()
+
+  if (!nzchar(params$input_file) || !nzchar(params$metadata) || !nzchar(params$manifest)) {
+    contract_stop("--input, --metadata, and --manifest are required for Random Forest")
+  }
+  params$input_file <- assert_explicit_path(params$input_file, "Random Forest expression matrix", must_exist = TRUE)
+  params$metadata <- assert_explicit_path(params$metadata, "sample metadata", must_exist = TRUE)
+  params$manifest <- assert_explicit_path(params$manifest, "manifest", must_exist = TRUE)
+  manifest <- validate_manifest_context(
+    params$manifest,
+    source_revision = if (nzchar(params$source_revision)) params$source_revision else NULL,
+    metadata_path = params$metadata
+  )
   
   # Ensure output directory exists
   if (!dir.exists(params$output_dir)) {
     dir.create(params$output_dir, recursive = TRUE, showWarnings = FALSE)
   }
   
-  if (!file.exists(params$input_file)) {
-    stop(sprintf("[ERROR] Input matrix not found: %s", params$input_file))
-  }
-  
   cat(sprintf("[INFO] Reading candidate gene expression: %s\n", params$input_file))
-  raw_mat <- read.table(
-    params$input_file, 
-    header = TRUE, 
-    sep = "\t", 
-    check.names = FALSE, 
-    row.names = 1, 
-    quote = ""
-  )
-  
-  # Transpose: samples as rows, genes as columns
-  expr_t <- as.data.frame(t(raw_mat))
+  metadata_contract <- read_metadata_contract(params$metadata)
+  raw_mat <- read_expression_matrix_contract(params$input_file, metadata_contract)
+  discovery_ids <- metadata_contract$sample_id[metadata_contract$partition == "discovery"]
+  if (length(discovery_ids) < 4) {
+    contract_stop("insufficient_discovery_samples: at least four discovery samples are required")
+  }
+  # Variable importance is a discovery/selection operation; validation samples
+  # are never used to choose RF genes.
+  expr_t <- as.data.frame(t(raw_mat[, discovery_ids, drop = FALSE]))
   sample_names <- rownames(expr_t)
   
-  # Extract response factor (disease)
-  if (!is.null(params$group_file) && file.exists(params$group_file)) {
-    cat(sprintf("[INFO] Loading phenotype labels from: %s\n", params$group_file))
-    group_df <- read.csv(params$group_file, stringsAsFactors = FALSE, check.names = FALSE)
-    sample_col <- if ("sample" %in% colnames(group_df)) "sample" else colnames(group_df)[1]
-    label_col <- if ("group" %in% colnames(group_df)) "group" else colnames(group_df)[2]
-    
-    label_map <- setNames(as.character(group_df[[label_col]]), as.character(group_df[[sample_col]]))
-    y_raw <- label_map[sample_names]
-    
-    if (any(is.na(y_raw))) {
-      y_raw <- gsub("(.*)\\_(.*)", "\\2", sample_names)
-    }
-  } else {
-    y_raw <- gsub("(.*)\\_(.*)", "\\2", sample_names)
-    if (all(y_raw == sample_names)) {
-      y_raw <- gsub("(.*)[\\.\\-](.*)", "\\2", sample_names)
-    }
-  }
-  
-  disease_labels <- gsub("[0-9]+$", "", y_raw)
+  # Extract response strictly from the canonical metadata.
+  disease_labels <- metadata_contract$group[match(sample_names, metadata_contract$sample_id)]
+  if (any(is.na(disease_labels))) contract_stop("metadata_sample_mismatch")
   data_df <- expr_t
   data_df$disease <- as.factor(disease_labels)
   
@@ -137,6 +143,9 @@ main <- function() {
               nrow(data_df), length(orig_gene_names)))
   cat("[INFO] Phenotype breakdown:\n")
   print(table(data_df$disease))
+  if (length(unique(data_df$disease)) < 2 || min(table(data_df$disease)) < 2) {
+    contract_stop("insufficient_class_size: every discovery class needs at least two samples")
+  }
   
   # Execute Random Forest with Permutation Test
   richness_data <- NULL
@@ -261,11 +270,21 @@ main <- function() {
   # Filter significant features (p < p_cutoff)
   sig_genes <- as.character(richness_data$name[richness_data$p_value < params$p_cutoff])
   
-  # Fallback if no genes meet the strict p < 0.05 cutoff
+  # An empty significance set is a valid negative result. Never replace it with
+  # ranked top-N genes because that changes the candidate estimand.
   if (length(sig_genes) == 0) {
-    cat(sprintf("[WARN] No genes reached permutation p < %.2f. Selecting top 5 genes by MeanDecreaseGini.\n", params$p_cutoff))
-    top_genes <- as.character(tail(richness_data$name, 5))
-    sig_genes <- rev(top_genes)
+    cat(sprintf("[NEGATIVE] No genes reached permutation p < %.2f; no top-N fallback applied.\n", params$p_cutoff))
+    out_genes_path <- file.path(params$output_dir, params$output_genes)
+    writeLines(character(), out_genes_path)
+    write_stage_status(
+      manifest, "bio-08-ml-randomforest", "negative",
+      "no feature reached the permutation threshold; no top-N fallback was applied",
+      commandArgs(trailingOnly = FALSE), c(params$input_file, params$metadata),
+      c(out_richness_path, out_genes_path), sample_names,
+      status_path = file.path(params$output_dir, "status", "bio-08-ml-randomforest.json"),
+      exit_code = 0
+    )
+    return(invisible(FALSE))
   }
   
   # Gate check
@@ -340,7 +359,15 @@ main <- function() {
   cat("Top Genes:\n")
   print(head(sig_genes, 10))
   cat("========================================================\n")
-  cat("[STAGE COMPLETE] bio-08-ml-randomforest completed successfully.\n")
+  write_stage_status(
+    manifest, "bio-08-ml-randomforest", "success",
+    "discovery-only RF permutation importance completed",
+    commandArgs(trailingOnly = FALSE), c(params$input_file, params$metadata),
+    c(out_richness_path, out_genes_path, out_plot_path), sample_names,
+    status_path = file.path(params$output_dir, "status", "bio-08-ml-randomforest.json"),
+    exit_code = 0
+  )
+  cat("[STAGE COMPLETE] bio-08-ml-randomforest completed successfully on discovery data.\n")
 }
 
 if (!interactive()) {

@@ -8,8 +8,8 @@ description: >-
 
 # 生信分析全流程编排器
 
-> **spec-007 状态**: 11 个 original-sop 组件已完成契约修复（P0/P1，2026-09-03），
-> 通过 toy-data 全链验证。编排器 gate 已从"文件存在"升级为契约化校验。
+> **spec-008 状态**: 11 个 original-sop 组件在固定基线之上完成 source-only contract hardening（2026-09-15）。
+> 外部 worktree 尚未提交或注册；toy E2E 会对不可映射 synthetic IDs fail-closed。
 
 ## 依赖声明
 
@@ -23,8 +23,9 @@ description: >-
 ## 执行流程
 
 ```
-Rscript run_pipeline.R --project-dir <work> --start-stage 1 --end-stage 10
-# 支持 --dry-run / --force / --log / --report
+Rscript run_pipeline.R --project-dir=<work> --matrix=<matrix> --metadata=<metadata> \
+  --source-revision=<commit-or-marker> --run-id=<run-id>
+# 可选：--platform=<annotation> --start-stage=<n> --end-stage=<n> --dry-run --force --log=<file> --report=<file>
 ```
 
 ## DAG 依赖关系
@@ -46,11 +47,12 @@ S01 → S02 → S03 ┐
 2. 所需 R 包已安装：limma/sva/WGCNA/impute/Biobase/clusterProfiler/glmnet/randomForest/pROC/VennDiagram/ggplot2（required）
 3. 原始数据已就绪（探针矩阵 + platform + 分组 metadata）
 
-## Gate 校验机制（spec-007 修复）
+## Gate 校验机制（spec-008 contract hardening）
 
-- **Stage 1 gate**: 任一 `*.normalize.txt` + PD.csv/group.txt 存在（不再查幻影文件）
-- **Stage 5 gate**: GO/KEGG enrichment csv 非空（不再硬编码 passed=TRUE）
-- 未通过 Gate 则停止并报告
+- 每次运行先创建 manifest，校验显式 matrix/metadata、样本顺序、输入 SHA-256、source revision 和 run ID。
+- 每个子步骤接收显式 run-scoped 路径、metadata 和 manifest；缺脚本、子进程非零、输出缺失或内容失败都会记录 `failure` 并停止。
+- `success`、`negative`、`manual_review`、`skipped`、`failure` 是不同状态；阴性结果不得以 top-N、union 或复制列表替换。
+- S05 对未知物种、ID 类型不匹配、检测 universe 不一致或无法映射的输入 fail-closed；S09 文献步骤在未调用证据服务时写 `skipped`。
 
 ## 版本说明
-- 2026-09-03 (spec-007): Stage1/5 gate 修复；依赖清单修正（limma/sva/WGCNA 进 required）；删 typo alias；I/O 契约化
+- 2026-09-15 (spec-008): explicit manifest/metadata/path contracts；typed stage statuses；stale-artifact and failure propagation；S01–S10 substep wiring；source-only/unregistered boundary

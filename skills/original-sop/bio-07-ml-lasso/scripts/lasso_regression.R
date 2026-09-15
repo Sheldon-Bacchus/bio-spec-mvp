@@ -7,6 +7,13 @@
 #              deviance to select optimal sparse feature subsets from candidate genes.
 # ==============================================================================
 
+file_arg <- grep("^--file=", commandArgs(trailingOnly = FALSE), value = TRUE)
+script_dir <- if (length(file_arg) > 0) dirname(normalizePath(sub("^--file=", "", file_arg[1]), winslash = "/", mustWork = FALSE)) else getwd()
+contract_helper <- Sys.getenv("BIO_PIPELINE_CONTRACT_HELPER", "")
+if (!nzchar(contract_helper)) contract_helper <- file.path(dirname(dirname(script_dir)), "bio-pipeline-orchestrator", "scripts", "contract_helpers.R")
+if (!file.exists(contract_helper)) stop("[CONTRACT ERROR] contract_helpers.R not found", call. = FALSE)
+source(contract_helper)
+
 # Explicit library imports
 suppressPackageStartupMessages({
   library(glmnet)
@@ -18,8 +25,11 @@ set.seed(12345)
 parse_args <- function() {
   args <- commandArgs(trailingOnly = TRUE)
   params <- list(
-    input_file = "merged_file.txt",
-    group_file = NULL,
+    input_file = "",
+    group_file = "",
+    metadata = "",
+    manifest = "",
+    source_revision = "",
     output_dir = ".",
     output_gene_file = "LASSO.gene.txt",
     output_coef_file = "lasso_coefficients.csv",
@@ -35,17 +45,31 @@ parse_args <- function() {
       params$input_file <- sub("^--input=", "", arg)
     } else if (grepl("^--group=", arg)) {
       params$group_file <- sub("^--group=", "", arg)
+    } else if (grepl("^--metadata=", arg)) {
+      params$metadata <- sub("^--metadata=", "", arg)
+    } else if (grepl("^--manifest=", arg)) {
+      params$manifest <- sub("^--manifest=", "", arg)
+    } else if (grepl("^--source-revision=", arg)) {
+      params$source_revision <- sub("^--source-revision=", "", arg)
     } else if (grepl("^--output-dir=", arg)) {
       params$output_dir <- sub("^--output-dir=", "", arg)
     } else if (grepl("^--output-genes=", arg)) {
       params$output_gene_file <- sub("^--output-genes=", "", arg)
+    } else if (grepl("^--output-coef=", arg)) {
+      params$output_coef_file <- sub("^--output-coef=", "", arg)
+    } else if (grepl("^--output-lasso-pdf=", arg)) {
+      params$output_lasso_pdf <- sub("^--output-lasso-pdf=", "", arg)
+    } else if (grepl("^--output-cvfit-pdf=", arg)) {
+      params$output_cvfit_pdf <- sub("^--output-cvfit-pdf=", "", arg)
     } else if (grepl("^--nfolds=", arg)) {
       params$nfolds <- as.integer(sub("^--nfolds=", "", arg))
     } else if (arg %in% c("-h", "--help")) {
       cat("Usage: Rscript lasso_regression.R [options]\n")
       cat("Options:\n")
       cat("  --input=<path>        Path to matched expression matrix [default: merged_file.txt]\n")
-      cat("  --group=<path>        Optional sample group metadata CSV file\n")
+      cat("  --metadata=<path>     Canonical sample metadata CSV/TSV (required)\n")
+      cat("  --manifest=<path>     Run manifest (required)\n")
+      cat("  --source-revision=<s> Source revision recorded in status (required)\n")
       cat("  --output-dir=<dir>    Directory for output files [default: .]\n")
       cat("  --output-genes=<file> Filename for selected genes [default: LASSO.gene.txt]\n")
       cat("  --nfolds=<int>        Cross-validation folds [default: 10]\n")
@@ -57,6 +81,18 @@ parse_args <- function() {
 
 main <- function() {
   params <- parse_args()
+
+  if (!nzchar(params$input_file) || !nzchar(params$metadata) || !nzchar(params$manifest)) {
+    contract_stop("--input, --metadata, and --manifest are required for LASSO")
+  }
+  params$input_file <- assert_explicit_path(params$input_file, "LASSO expression matrix", must_exist = TRUE)
+  params$metadata <- assert_explicit_path(params$metadata, "sample metadata", must_exist = TRUE)
+  params$manifest <- assert_explicit_path(params$manifest, "manifest", must_exist = TRUE)
+  manifest <- validate_manifest_context(
+    params$manifest,
+    source_revision = if (nzchar(params$source_revision)) params$source_revision else NULL,
+    metadata_path = params$metadata
+  )
   
   # Ensure output directory exists
   if (!dir.exists(params$output_dir)) {
@@ -68,40 +104,20 @@ main <- function() {
   }
   
   cat(sprintf("[INFO] Reading merged candidate expression: %s\n", params$input_file))
-  rt <- read.table(
-    params$input_file, 
-    header = TRUE, 
-    sep = "\t", 
-    check.names = FALSE, 
-    row.names = 1, 
-    quote = ""
-  )
-  
-  # Transpose matrix: samples as rows, genes as columns
-  rt <- t(rt)
+  metadata_contract <- read_metadata_contract(params$metadata)
+  matrix_values <- read_expression_matrix_contract(params$input_file, metadata_contract)
+  # Feature selection is locked to discovery samples only.
+  discovery_ids <- metadata_contract$sample_id[metadata_contract$partition == "discovery"]
+  if (length(discovery_ids) < 4) {
+    contract_stop("insufficient_discovery_samples: at least four discovery samples are required")
+  }
+  rt <- t(matrix_values[, discovery_ids, drop = FALSE])
   cat(sprintf("[INFO] Matrix transposed: %d samples, %d candidate genes.\n", nrow(rt), ncol(rt)))
   
   # Extract response vector y
   sample_names <- rownames(rt)
-  if (is.null(params$group_file) || !file.exists(params$group_file)) {
-    stop("[GATE ERROR] --group file is REQUIRED for LASSO (contracts G-03 fail-closed: explicit metadata only). Provide sample group metadata CSV.")
-  }
-  cat(sprintf("[INFO] Extracting sample labels from metadata: %s\n", params$group_file))
-  group_df <- read.csv(params$group_file, stringsAsFactors = FALSE, check.names = FALSE)
-  sample_col <- if ("sample" %in% colnames(group_df)) "sample" else colnames(group_df)[1]
-  label_col <- if ("group" %in% colnames(group_df)) "group" else colnames(group_df)[2]
-  
-  label_map <- setNames(as.character(group_df[[label_col]]), as.character(group_df[[sample_col]]))
-  y_raw <- label_map[sample_names]
-  
-  unmatched <- sum(is.na(y_raw))
-  if (unmatched > 0) {
-    stop(sprintf("[GATE ERROR] %d samples did not match the group file (fail-closed on label mismatch). Check sample names / batch prefixes.", unmatched))
-  }
-  
-  # Remove trailing numbers if present (e.g., biofilm1 -> biofilm, normal2 -> normal)
-  y_clean <- gsub("[0-9]+$", "", y_raw)
-  y <- as.factor(y_clean)
+  y <- factor(metadata_contract$group[match(sample_names, metadata_contract$sample_id)])
+  if (any(is.na(y))) contract_stop("metadata_sample_mismatch")
   
   cat("[INFO] Class label distribution:\n")
   print(table(y))
@@ -124,8 +140,12 @@ main <- function() {
     }
   }
   
-  # Adjust folds if sample size is smaller than default nfolds
+  # Do not silently reduce below two folds: an underpowered discovery partition
+  # is a typed failure rather than a fabricated selection result.
   min_class_size <- min(table(y))
+  if (min_class_size < 2) {
+    contract_stop("insufficient_class_size: every discovery class needs at least two samples")
+  }
   actual_nfolds <- min(params$nfolds, min_class_size)
   if (actual_nfolds < params$nfolds) {
     cat(sprintf("[INFO] Adjusting nfolds to %d due to smallest class size (%d).\n", 
@@ -184,7 +204,18 @@ main <- function() {
   
   # lambda.min 无基因时禁止静默凑数（contracts G-04: report, do not fabricate）
   if (length(selected_genes) == 0) {
-    stop("[GATE ERROR] LASSO selected NO genes at lambda.min. Check feature matrix / separability. Refusing top-N fabrication (contracts G-04).")
+    out_gene_path <- file.path(params$output_dir, params$output_gene_file)
+    writeLines(character(), out_gene_path)
+    write_stage_status(
+      manifest, "bio-07-ml-lasso", "negative",
+      "LASSO selected no genes at lambda.min; no top-N fallback was applied",
+      commandArgs(trailingOnly = FALSE), c(params$input_file, params$metadata),
+      c(out_gene_path, lasso_pdf_path, cvfit_pdf_path), sample_names,
+      status_path = file.path(params$output_dir, "status", "bio-07-ml-lasso.json"),
+      exit_code = 0
+    )
+    cat("[NEGATIVE] LASSO selected no genes; preserving a typed negative result.\n")
+    return(invisible(FALSE))
   }
   
   # Summary table
@@ -233,7 +264,15 @@ main <- function() {
   write.csv(coef_df, file = out_coef_path, row.names = FALSE)
   cat(sprintf("[SUCCESS] Saved coefficient details to: %s\n", out_coef_path))
   
-  cat("[STAGE COMPLETE] bio-07-ml-lasso completed successfully.\n")
+  write_stage_status(
+    manifest, "bio-07-ml-lasso", "success",
+    "discovery-only LASSO selection and stratified cross-validation completed",
+    commandArgs(trailingOnly = FALSE), c(params$input_file, params$metadata),
+    c(out_gene_path, out_1se_path, out_coef_path, lasso_pdf_path, cvfit_pdf_path), sample_names,
+    status_path = file.path(params$output_dir, "status", "bio-07-ml-lasso.json"),
+    exit_code = 0
+  )
+  cat("[STAGE COMPLETE] bio-07-ml-lasso completed successfully on discovery data.\n")
 }
 
 if (!interactive()) {

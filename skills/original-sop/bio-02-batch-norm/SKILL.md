@@ -13,9 +13,9 @@ description: >-
 - `limma` (avereps), `sva` (ComBat), `ggplot2`, `gridExtra`
 
 ### 输入
-- 多个 `{gse_id}.normalize.txt` 文件（`--input-files` 逗号分隔或 `--indir` 模式匹配）
-- `--pd` — PD.csv 分组信息（sample + group；**用于保护生物学变量**）
-- 批次标识（各数据集即批次）
+- 显式 `--input-files` 表达矩阵路径（当前 orchestrator 传入本次 S01 的规范化矩阵）
+- `--metadata` — canonical sample metadata CSV/TSV（sample_id、group、batch、partition；**必传**）
+- `--manifest` / `--source-revision` — 当前运行 provenance（**必传**）
 
 ### 输出
 - `merge.normalize.txt` — 去批次后合并矩阵
@@ -26,8 +26,8 @@ description: >-
 ## 执行步骤
 
 1. 运行 [sva_combat.R](./scripts/sva_combat.R)：
-   - 读取所有数据集，提取交集基因（<50 时 fail-closed 报错）
-   - 合并并记录批次编号（列名加批次前缀 `TAG_`）
+   - 读取显式输入，按 canonical metadata 校验样本顺序和批次（<50 个共同基因或 batch 不可识别时 fail-closed）
+   - 合并并保留 metadata 中的 canonical sample IDs，不从文件名推断批次或分组
    - 输出 `merge.preNorm.txt`（去批次前）
    - `ComBat(allTab, batchType, mod)` 去除批次效应（mod 保护生物学变量；缺失时显式 WARN 记录）
    - 输出 `merge.normalize.txt` + 前后对比箱线图
@@ -39,4 +39,4 @@ description: >-
 - 注意事项：批次与分组完全混杂时 ComBat 会明确报错（设计问题，需改实验设计）
 
 ## 版本说明
-- 2026-09-03 (spec-007): CLI 连字符参数修复（--input-files/--pd 生效）
+- 2026-09-15 (spec-008): canonical metadata/manifest inputs；no current-directory or filename batch/group inference；status/provenance artifacts

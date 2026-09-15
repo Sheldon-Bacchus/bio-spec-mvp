@@ -8,6 +8,13 @@
 # Reproducibility: set.seed(12345)
 # ==============================================================================
 
+file_arg <- grep("^--file=", commandArgs(trailingOnly = FALSE), value = TRUE)
+script_dir <- if (length(file_arg) > 0) dirname(normalizePath(sub("^--file=", "", file_arg[1]), winslash = "/", mustWork = FALSE)) else getwd()
+contract_helper <- Sys.getenv("BIO_PIPELINE_CONTRACT_HELPER", "")
+if (!nzchar(contract_helper)) contract_helper <- file.path(dirname(dirname(script_dir)), "bio-pipeline-orchestrator", "scripts", "contract_helpers.R")
+if (!file.exists(contract_helper)) stop("[CONTRACT ERROR] contract_helpers.R not found", call. = FALSE)
+source(contract_helper)
+
 suppressPackageStartupMessages({
   library(limma)
   library(sva)
@@ -27,9 +34,8 @@ parse_args <- function(defaults) {
     if (grepl("^--", arg)) {
       key_val <- sub("^--", "", arg)
       if (grepl("=", key_val)) {
-        parts <- strsplit(key_val, "=", fixed = TRUE)[[1]]
-        key <- gsub("-", "_", parts[1])
-        res[[key]] <- parts[2]
+        key <- gsub("-", "_", sub("=.*$", "", key_val))
+        res[[key]] <- sub("^[^=]*=", "", key_val)
       } else if (i + 1 <= length(args) && !grepl("^--", args[i + 1])) {
         res[[gsub("-", "_", key_val)]] <- args[i + 1]
         i <- i + 1
@@ -47,9 +53,12 @@ parse_args <- function(defaults) {
 # ------------------------------------------------------------------------------
 defaults <- list(
   indir = ".",
-  pattern = ".*\\.normalize\\.txt$",
-  input_files = "",                          # Comma-separated list of files (overrides pattern)
-  pd = "",                                   # Phenotype/group file to protect biological condition
+  pattern = ".*\\.normalize\\.txt$",             # Deprecated; never used for discovery
+  input_files = "",                          # Required comma-separated list of files
+  pd = "",                                   # Deprecated alias; canonical metadata is required
+  metadata = "",                             # Canonical sample metadata CSV/TSV
+  manifest = "",                             # Run manifest JSON
+  source_revision = "",
   outdir = ".",
   out_prenorm = "merge.preNorm.txt",
   out_norm = "merge.normalize.txt",
@@ -57,6 +66,17 @@ defaults <- list(
 )
 
 opt <- parse_args(defaults)
+
+if (!nzchar(opt$input_files) || !nzchar(opt$metadata) || !nzchar(opt$manifest)) {
+  contract_stop("--input-files, --metadata, and --manifest are required; current-directory discovery and group heuristics are disabled")
+}
+opt$metadata <- assert_explicit_path(opt$metadata, "sample metadata", must_exist = TRUE)
+opt$manifest <- assert_explicit_path(opt$manifest, "manifest", must_exist = TRUE)
+manifest <- validate_manifest_context(
+  opt$manifest,
+  source_revision = if (nzchar(opt$source_revision)) opt$source_revision else NULL,
+  metadata_path = opt$metadata
+)
 
 if (!dir.exists(opt$outdir)) {
   dir.create(opt$outdir, recursive = TRUE, showWarnings = FALSE)
@@ -67,16 +87,11 @@ cat("[INFO] Starting ComBat Batch Effect Removal Pipeline\n")
 # ------------------------------------------------------------------------------
 # Step 1: Collect Input Dataset Files
 # ------------------------------------------------------------------------------
-if (nchar(opt$input_files) > 0) {
-  files <- trimws(unlist(strsplit(opt$input_files, ",")))
-} else {
-  files <- list.files(path = opt$indir, pattern = opt$pattern, full.names = TRUE)
-  # Filter out previously merged files if present
-  files <- files[!grepl("merge\\.preNorm|merge\\.normalize", basename(files))]
-}
+files <- trimws(unlist(strsplit(opt$input_files, ",", fixed = TRUE)))
+files <- vapply(files, assert_explicit_path, character(1), label = "batch input", must_exist = TRUE)
 
-if (length(files) < 2) {
-  stop(sprintf("[ERROR] At least 2 dataset files are required for batch effect removal. Found %d.", length(files)))
+if (length(files) < 1) {
+  contract_stop("at least one explicit expression matrix is required for batch effect removal")
 }
 
 cat(sprintf("[INFO] Processing %d dataset files:\n", length(files)))
@@ -88,26 +103,29 @@ for (f in files) cat(sprintf("  - %s\n", basename(f)))
 gene_list <- list()
 dataset_mats <- list()
 dataset_tags <- c()
+metadata_contract <- read_metadata_contract(opt$metadata)
+all_sample_ids <- character()
 
 for (i in seq_along(files)) {
   f <- files[i]
-  tag <- sub("\\..*", "", basename(f))
+  tag <- paste0("input_", i)
   dataset_tags <- c(dataset_tags, tag)
-  
-  df <- read.table(f, header = TRUE, sep = "\t", quote = "", check.names = FALSE, fill = TRUE)
-  genes <- as.character(df[[1]])
-  m <- as.matrix(df[, -1, drop = FALSE])
-  rownames(m) <- genes
-  mode(m) <- "numeric"
+
+  m <- read_expression_matrix_contract(f)
+  if (length(intersect(colnames(m), all_sample_ids)) > 0) {
+    contract_stop(sprintf("duplicate_sample_id across batch inputs: %s", paste(intersect(colnames(m), all_sample_ids), collapse = ", ")))
+  }
+  all_sample_ids <- c(all_sample_ids, colnames(m))
   
   # Avereps for any within-dataset replicates
   m <- avereps(m)
   
-  # Rename columns to ensure uniqueness across datasets: Tag_SampleID
-  colnames(m) <- paste0(tag, "_", colnames(m))
-  
   gene_list[[tag]] <- rownames(m)
   dataset_mats[[tag]] <- m
+}
+
+if (!identical(as.character(all_sample_ids), as.character(metadata_contract$sample_id))) {
+  contract_stop("sample_order_mismatch: concatenated batch matrices must equal canonical metadata order")
 }
 
 common_genes <- Reduce(intersect, gene_list)
@@ -136,7 +154,11 @@ for (i in seq_along(dataset_mats)) {
 }
 
 cat(sprintf("[INFO] Combined matrix dimensions: %d genes across %d samples\n", nrow(all_tab), ncol(all_tab)))
-cat("[INFO] Batch composition:\n")
+batch_vec <- as.character(metadata_contract$batch)
+if (length(batch_vec) != ncol(all_tab) || length(unique(batch_vec)) < 2) {
+  contract_stop("batch_levels: canonical metadata must contain at least two batch levels aligned to the merged matrix")
+}
+cat("[INFO] Canonical batch composition:\n")
 print(table(batch_vec))
 
 # Export pre-batch matrix
@@ -148,38 +170,13 @@ write.table(data.frame(Symbol = rownames(all_tab), all_tab, check.names = FALSE)
 # ------------------------------------------------------------------------------
 # Step 4: ComBat Batch Effect Removal
 # ------------------------------------------------------------------------------
-batch_factor <- as.factor(batch_vec)
+batch_factor <- as.factor(metadata_contract$batch)
 
 mod <- NULL
-if (nchar(opt$pd) > 0 && file.exists(opt$pd)) {
-  cat(sprintf("[INFO] Loading phenotype data from %s to protect biological covariates...\n", opt$pd))
-  pd <- read.csv(opt$pd, stringsAsFactors = FALSE)
-  
-  # Match samples
-  sample_col <- if ("sample" %in% colnames(pd)) "sample" else colnames(pd)[1]
-  group_col <- if ("group" %in% colnames(pd)) "group" else colnames(pd)[2]
-  
-  # Find matching names either directly or with tag prefix
-  pd_samples <- pd[[sample_col]]
-  mat_samples <- colnames(all_tab)
-  
-  # Check direct match or suffix match
-  matched_indices <- match(mat_samples, pd_samples)
-  if (any(is.na(matched_indices))) {
-    # Try matching without batch prefix
-    stripped_samples <- sub("^[^_]+_", "", mat_samples)
-    matched_indices <- match(stripped_samples, pd_samples)
-  }
-  
-  if (!any(is.na(matched_indices))) {
-    groups <- pd[[group_col]][matched_indices]
-    if (length(unique(groups)) > 1) {
-      mod <- model.matrix(~ as.factor(groups))
-      cat(sprintf("[INFO] Constructed biological condition design matrix protecting '%s'.\n", group_col))
-    }
-  } else {
-    cat("[WARN] Could not match all sample names with phenotype data. Proceeding without biological condition matrix.\n")
-  }
+groups <- metadata_contract$group
+if (length(unique(groups)) > 1) {
+  mod <- model.matrix(~ as.factor(groups))
+  cat("[INFO] Constructed biological condition design matrix from canonical metadata.\n")
 }
 
 cat("[INFO] Running sva::ComBat (par.prior = TRUE)...\n")
@@ -223,3 +220,18 @@ legend("topright", legend = batch_levels, fill = palette, bty = "n", cex = 0.8)
 dev.off()
 
 cat(sprintf("[SUCCESS] Stage 02 ComBat batch removal complete. Output: %s\n", out_norm_path))
+
+if (exists("write_stage_status") && nzchar(opt$manifest)) {
+  write_stage_status(
+    manifest,
+    "bio-02-batch-norm",
+    "success",
+    "batch correction completed with canonical sample and batch metadata",
+    commandArgs(trailingOnly = FALSE),
+    c(files, opt$metadata),
+    c(out_prenorm_path, out_norm_path, boxplot_path),
+    metadata_contract$sample_id,
+    status_path = file.path(opt$outdir, "status", "bio-02-batch-norm.json"),
+    exit_code = 0
+  )
+}

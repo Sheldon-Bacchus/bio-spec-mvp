@@ -3,6 +3,13 @@
 # hub_gene_intersection.R - Dual-Algorithm Machine Learning Intersection
 # ==============================================================================
 # Skill: bio-09-hub-literature
+# Shared run and provenance contracts.
+file_arg <- grep("^--file=", commandArgs(trailingOnly = FALSE), value = TRUE)
+script_dir <- if (length(file_arg) > 0) dirname(normalizePath(sub("^--file=", "", file_arg[1]), winslash = "/", mustWork = FALSE)) else getwd()
+contract_helper <- Sys.getenv("BIO_PIPELINE_CONTRACT_HELPER", "")
+if (!nzchar(contract_helper)) contract_helper <- file.path(dirname(dirname(script_dir)), "bio-pipeline-orchestrator", "scripts", "contract_helpers.R")
+if (!file.exists(contract_helper)) stop("[CONTRACT ERROR] contract_helpers.R not found", call. = FALSE)
+source(contract_helper)
 # Description: Takes feature gene subsets selected by LASSO regression (L1 penalty)
 #              and Random Forest (permutation significance), computes their final
 #              consensus intersection, and produces the definitive Hub gene panel.
@@ -14,11 +21,13 @@ set.seed(12345)
 parse_args <- function() {
   args <- commandArgs(trailingOnly = TRUE)
   params <- list(
-    lasso_file = "LASSO.gene.txt",
-    rf_file = "rf_genes.txt",
+    lasso_file = "",
+    rf_file = "",
     output_dir = ".",
     output_hub_file = "final_hub_genes.txt",
-    output_summary = "hub_intersection_summary.txt"
+    output_summary = "hub_intersection_summary.txt",
+    manifest = "",
+    source_revision = ""
   )
   
   for (arg in args) {
@@ -30,6 +39,12 @@ parse_args <- function() {
       params$output_dir <- sub("^--output-dir=", "", arg)
     } else if (grepl("^--output-hub=", arg)) {
       params$output_hub_file <- sub("^--output-hub=", "", arg)
+    } else if (grepl("^--output-summary=", arg)) {
+      params$output_summary <- sub("^--output-summary=", "", arg)
+    } else if (grepl("^--manifest=", arg)) {
+      params$manifest <- sub("^--manifest=", "", arg)
+    } else if (grepl("^--source-revision=", arg)) {
+      params$source_revision <- sub("^--source-revision=", "", arg)
     } else if (arg %in% c("-h", "--help")) {
       cat("Usage: Rscript hub_gene_intersection.R [options]\n")
       cat("Options:\n")
@@ -64,6 +79,17 @@ read_genes <- function(file_path, label) {
 
 main <- function() {
   params <- parse_args()
+
+  if (!nzchar(params$lasso_file) || !nzchar(params$rf_file) || !nzchar(params$manifest)) {
+    contract_stop("--lasso, --rf, and --manifest are required; no copied-list fallback is permitted")
+  }
+  params$lasso_file <- assert_explicit_path(params$lasso_file, "LASSO gene list", must_exist = TRUE)
+  params$rf_file <- assert_explicit_path(params$rf_file, "Random Forest gene list", must_exist = TRUE)
+  params$manifest <- assert_explicit_path(params$manifest, "manifest", must_exist = TRUE)
+  manifest <- validate_manifest_context(
+    params$manifest,
+    source_revision = if (nzchar(params$source_revision)) params$source_revision else NULL
+  )
   
   # Ensure output directory exists
   if (!dir.exists(params$output_dir)) {
@@ -94,17 +120,13 @@ main <- function() {
   cat(sprintf("Jaccard Similarity Index:        %.3f\n", jaccard_index))
   cat("--------------------------------------------------------\n")
   
-  # If intersection is empty, implement graceful fallback
+  # An empty intersection is an explicit negative result. The union is reported
+  # only as a diagnostic metric and is never written as the final hub list.
   if (n_intersect == 0) {
-    stop("[GATE ERROR] Intersection between LASSO and Random Forest is EMPTY. Refusing union fallback (contracts G-06: empty intersection requires human review).")
+    cat("[NEGATIVE] Empty LASSO/RF intersection; preserving empty final hub list and refusing union fallback.\n")
   }
   
-  # Gate check: Final Hub genes non-empty (at least 1 gene)
-  if (n_intersect < 1) {
-    stop("[GATE ERROR] Both LASSO and Random Forest produced 0 features! Aborting.")
-  }
-  
-  cat("Consensus Hub Gene List:\n")
+  cat("Consensus Hub Gene List (empty is a valid negative result):\n")
   for (i in seq_along(final_hub_genes)) {
     cat(sprintf("  [%02d] %s\n", i, final_hub_genes[i]))
   }
@@ -143,8 +165,17 @@ main <- function() {
   )
   writeLines(summary_lines, con = out_summary_path)
   cat(sprintf("[SUCCESS] Saved summary metrics to: %s\n", out_summary_path))
-  
-  cat("[STAGE COMPLETE] bio-09-hub-literature hub intersection finished successfully.\n")
+
+  status <- if (n_intersect > 0) "success" else "negative"
+  reason <- if (n_intersect > 0) "LASSO and Random Forest declared intersection computed" else "LASSO and Random Forest intersection is empty; no union/copy fallback"
+  write_stage_status(
+    manifest, "bio-09-hub-literature", status, reason,
+    commandArgs(trailingOnly = FALSE), c(params$lasso_file, params$rf_file),
+    c(out_hub_path, out_summary_path), final_hub_genes,
+    status_path = file.path(params$output_dir, "status", "bio-09-hub-literature.json"),
+    exit_code = 0
+  )
+  cat(sprintf("[STAGE %s] bio-09-hub-literature finished: %s.\n", toupper(status), reason))
 }
 
 if (!interactive()) {

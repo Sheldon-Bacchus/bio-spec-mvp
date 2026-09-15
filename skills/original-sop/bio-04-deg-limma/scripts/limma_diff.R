@@ -9,6 +9,13 @@
 # Reproducibility: set.seed(12345)
 # ==============================================================================
 
+file_arg <- grep("^--file=", commandArgs(trailingOnly = FALSE), value = TRUE)
+script_dir <- if (length(file_arg) > 0) dirname(normalizePath(sub("^--file=", "", file_arg[1]), winslash = "/", mustWork = FALSE)) else getwd()
+contract_helper <- Sys.getenv("BIO_PIPELINE_CONTRACT_HELPER", "")
+if (!nzchar(contract_helper)) contract_helper <- file.path(dirname(dirname(script_dir)), "bio-pipeline-orchestrator", "scripts", "contract_helpers.R")
+if (!file.exists(contract_helper)) stop("[CONTRACT ERROR] contract_helpers.R not found", call. = FALSE)
+source(contract_helper)
+
 suppressPackageStartupMessages({
   library(limma)
   library(pheatmap)
@@ -28,9 +35,8 @@ parse_args <- function(defaults) {
     if (grepl("^--", arg)) {
       key_val <- sub("^--", "", arg)
       if (grepl("=", key_val)) {
-        parts <- strsplit(key_val, "=", fixed = TRUE)[[1]]
-        key <- gsub("-", "_", parts[1])
-        res[[key]] <- parts[2]
+        key <- gsub("-", "_", sub("=.*$", "", key_val))
+        res[[key]] <- sub("^[^=]*=", "", key_val)
       } else if (i + 1 <= length(args) && !grepl("^--", args[i + 1])) {
         res[[gsub("-", "_", key_val)]] <- args[i + 1]
         i <- i + 1
@@ -47,10 +53,15 @@ parse_args <- function(defaults) {
 # Defaults
 # ------------------------------------------------------------------------------
 defaults <- list(
-  input = "merge.normalize.txt",
-  pd = "",                                   # Optional PD.csv or group.txt
-  s1 = "s1.txt",                             # Control sample file
-  s2 = "s2.txt",                             # Treat sample file
+  input = "",
+  pd = "",                                   # Deprecated alias; use metadata
+  metadata = "",                             # Canonical sample metadata CSV/TSV
+  manifest = "",                             # Run manifest JSON
+  source_revision = "",
+  control_group = "control",
+  treat_group = "case",
+  s1 = "",                                   # Deprecated and ignored
+  s2 = "",                                   # Deprecated and ignored
   logfc = "1.0",                             # Absolute logFC threshold
   fdr = "0.05",                              # Adjusted p-value threshold
   top_heatmap = "50",                        # Number of top DEGs in heatmap
@@ -61,6 +72,18 @@ opt <- parse_args(defaults)
 opt$logfc <- as.numeric(opt$logfc)
 opt$fdr <- as.numeric(opt$fdr)
 opt$top_heatmap <- as.integer(opt$top_heatmap)
+
+if (!nzchar(opt$input) || !nzchar(opt$metadata) || !nzchar(opt$manifest)) {
+  contract_stop("--input, --metadata, and --manifest are required; sample-name/group-file inference is disabled")
+}
+opt$input <- assert_explicit_path(opt$input, "expression matrix", must_exist = TRUE)
+opt$metadata <- assert_explicit_path(opt$metadata, "sample metadata", must_exist = TRUE)
+opt$manifest <- assert_explicit_path(opt$manifest, "manifest", must_exist = TRUE)
+manifest <- validate_manifest_context(
+  opt$manifest,
+  source_revision = if (nzchar(opt$source_revision)) opt$source_revision else NULL,
+  metadata_path = opt$metadata
+)
 
 if (!dir.exists(opt$outdir)) {
   dir.create(opt$outdir, recursive = TRUE, showWarnings = FALSE)
@@ -73,15 +96,8 @@ cat(sprintf("[INFO] Thresholds: |logFC| > %.2f, adj.P.Val < %.4f\n", opt$logfc, 
 # ------------------------------------------------------------------------------
 # Step 1: Read Expression Matrix
 # ------------------------------------------------------------------------------
-if (!file.exists(opt$input)) {
-  stop(sprintf("[ERROR] Input matrix not found: %s", opt$input))
-}
-
-exp_df <- read.table(opt$input, header = TRUE, sep = "\t", quote = "", check.names = FALSE, fill = TRUE)
-genes <- as.character(exp_df[[1]])
-exp_mat <- as.matrix(exp_df[, -1, drop = FALSE])
-rownames(exp_mat) <- genes
-mode(exp_mat) <- "numeric"
+metadata_contract <- read_metadata_contract(opt$metadata)
+exp_mat <- read_expression_matrix_contract(opt$input, metadata_contract)
 
 # Average replicate gene symbols
 exp_mat <- avereps(exp_mat)
@@ -95,47 +111,19 @@ cat(sprintf("[INFO] Cleaned matrix dimensions: %d genes across %d samples\n", nr
 # Step 2: Determine Sample Groups
 # ------------------------------------------------------------------------------
 all_samples <- colnames(exp_mat)
-con_samples <- c()
-treat_samples <- c()
-
-# Method A: Use s1 and s2 files if available
-if (file.exists(opt$s1) && file.exists(opt$s2)) {
-  cat(sprintf("[INFO] Reading sample groupings from %s and %s\n", opt$s1, opt$s2))
-  s1_tab <- read.table(opt$s1, header = FALSE, sep = "\t", stringsAsFactors = FALSE)
-  s2_tab <- read.table(opt$s2, header = FALSE, sep = "\t", stringsAsFactors = FALSE)
-  con_samples <- intersect(trimws(as.character(s1_tab[, 1])), all_samples)
-  treat_samples <- intersect(trimws(as.character(s2_tab[, 1])), all_samples)
-}
-
-# Method B: Use pd/group file if provided
-if ((length(con_samples) == 0 || length(treat_samples) == 0) && nchar(opt$pd) > 0 && file.exists(opt$pd)) {
-  cat(sprintf("[INFO] Reading grouping from metadata file: %s\n", opt$pd))
-  pd <- if (grepl("\\.csv$", opt$pd)) read.csv(opt$pd) else read.table(opt$pd, header = TRUE, sep = "\t")
-  s_col <- if ("sample" %in% colnames(pd)) "sample" else colnames(pd)[1]
-  g_col <- if ("group" %in% colnames(pd)) "group" else colnames(pd)[2]
-  
-  con_samples <- intersect(pd[[s_col]][grepl("control|plank|normal|mock", pd[[g_col]], ignore.case = TRUE)], all_samples)
-  treat_samples <- intersect(pd[[s_col]][grepl("treat|biofilm|tumor|case", pd[[g_col]], ignore.case = TRUE)], all_samples)
-}
-
-# Method C: Fallback inference from sample names
-if (length(con_samples) == 0 || length(treat_samples) == 0) {
-  cat("[WARN] Inferring sample groups directly from sample column names...\n")
-  is_treat <- grepl("treat|biofilm|tumor|case|_t", all_samples, ignore.case = TRUE)
-  con_samples <- all_samples[!is_treat]
-  treat_samples <- all_samples[is_treat]
-}
+con_samples <- metadata_contract$sample_id[metadata_contract$group == opt$control_group]
+treat_samples <- metadata_contract$sample_id[metadata_contract$group == opt$treat_group]
 
 if (length(con_samples) == 0 || length(treat_samples) == 0) {
-  stop("[ERROR] Unable to partition samples into Control and Treat groups.")
+  stop(sprintf("[CONTRACT ERROR] metadata must contain both declared groups '%s' and '%s'", opt$control_group, opt$treat_group), call. = FALSE)
 }
 
 cat(sprintf("[INFO] Partitioned samples: %d Control, %d Treat\n", length(con_samples), length(treat_samples)))
 
 # Subset and order expression matrix
 sub_mat <- cbind(exp_mat[, con_samples, drop = FALSE], exp_mat[, treat_samples, drop = FALSE])
-group_labels <- factor(c(rep("Control", length(con_samples)), rep("Treat", length(treat_samples))),
-                       levels = c("Control", "Treat"))
+group_labels <- factor(c(rep(opt$control_group, length(con_samples)), rep(opt$treat_group, length(treat_samples))),
+                       levels = c(opt$control_group, opt$treat_group))
 
 # ------------------------------------------------------------------------------
 # Step 3: Limma Linear Modeling and Empirical Bayes
@@ -238,9 +226,26 @@ if (nrow(diff_sig) >= 2) {
   dev.off()
 } else {
   cat("[WARN] Less than 2 significant genes found. Skipping heatmap generation.\n")
+  pdf(heatmap_file, width = 8, height = 5)
+  plot.new()
+  text(0.5, 0.55, "No significant DEGs for heatmap", cex = 1.1)
+  text(0.5, 0.40, "Status: negative", cex = 0.9)
+  dev.off()
 }
 
 # Quality Gate Check
 stopifnot("Gate Fail: all.txt is missing" = file.exists(all_file))
 stopifnot("Gate Fail: diff.txt is missing" = file.exists(diff_file))
 cat(sprintf("[SUCCESS] Stage 04 limma DEG analysis complete: %d significant genes identified.\n", nrow(diff_sig)))
+
+stage_status <- if (nrow(diff_sig) > 0) "success" else "negative"
+stage_reason <- if (nrow(diff_sig) > 0) "explicit contrast and content gate passed" else "no feature passed the declared adjusted-p and logFC thresholds"
+if (exists("write_stage_status") && nzchar(opt$manifest)) {
+  write_stage_status(
+    manifest, "bio-04-deg-limma", stage_status, stage_reason,
+    commandArgs(trailingOnly = FALSE), c(opt$input, opt$metadata),
+    c(all_file, diff_file, deg_list_file, heatmap_file), all_samples,
+    status_path = file.path(opt$outdir, "status", "bio-04-deg-limma.json"),
+    exit_code = 0
+  )
+}

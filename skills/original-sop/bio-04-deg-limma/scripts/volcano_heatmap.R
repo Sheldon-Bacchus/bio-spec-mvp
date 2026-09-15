@@ -1,5 +1,12 @@
 #!/usr/bin/env Rscript
 # ==============================================================================
+
+file_arg <- grep("^--file=", commandArgs(trailingOnly = FALSE), value = TRUE)
+script_dir <- if (length(file_arg) > 0) dirname(normalizePath(sub("^--file=", "", file_arg[1]), winslash = "/", mustWork = FALSE)) else getwd()
+contract_helper <- Sys.getenv("BIO_PIPELINE_CONTRACT_HELPER", "")
+if (!nzchar(contract_helper)) contract_helper <- file.path(dirname(dirname(script_dir)), "bio-pipeline-orchestrator", "scripts", "contract_helpers.R")
+if (!file.exists(contract_helper)) stop("[CONTRACT ERROR] contract_helpers.R not found", call. = FALSE)
+source(contract_helper)
 # Pipeline Stage: bio-04-deg-limma
 # Script: volcano_heatmap.R
 # Description: Generates publication-quality volcano plots using ggplot2 and ggrepel:
@@ -28,9 +35,8 @@ parse_args <- function(defaults) {
     if (grepl("^--", arg)) {
       key_val <- sub("^--", "", arg)
       if (grepl("=", key_val)) {
-        parts <- strsplit(key_val, "=", fixed = TRUE)[[1]]
-        key <- gsub("-", "_", parts[1])
-        res[[key]] <- parts[2]
+        key <- gsub("-", "_", sub("=.*$", "", key_val))
+        res[[key]] <- sub("^[^=]*=", "", key_val)
       } else if (i + 1 <= length(args) && !grepl("^--", args[i + 1])) {
         res[[gsub("-", "_", key_val)]] <- args[i + 1]
         i <- i + 1
@@ -47,7 +53,10 @@ parse_args <- function(defaults) {
 # Defaults
 # ------------------------------------------------------------------------------
 defaults <- list(
-  input = "all.txt",
+  input = "",
+  metadata = "",
+  manifest = "",
+  source_revision = "",
   logfc = "1.0",
   fdr = "0.05",
   top_n = "10",                              # Number of top genes to label per direction
@@ -59,6 +68,19 @@ opt <- parse_args(defaults)
 opt$logfc <- as.numeric(opt$logfc)
 opt$fdr <- as.numeric(opt$fdr)
 opt$top_n <- as.integer(opt$top_n)
+
+if (!nzchar(opt$input) || !nzchar(opt$metadata) || !nzchar(opt$manifest)) {
+  contract_stop("--input, --metadata, and --manifest are required for the volcano substep")
+}
+opt$input <- assert_explicit_path(opt$input, "differential result table", must_exist = TRUE)
+opt$metadata <- assert_explicit_path(opt$metadata, "sample metadata", must_exist = TRUE)
+opt$manifest <- assert_explicit_path(opt$manifest, "manifest", must_exist = TRUE)
+manifest <- validate_manifest_context(
+  opt$manifest,
+  source_revision = if (nzchar(opt$source_revision)) opt$source_revision else NULL,
+  metadata_path = opt$metadata
+)
+metadata_contract <- read_metadata_contract(opt$metadata)
 
 if (!dir.exists(opt$outdir)) {
   dir.create(opt$outdir, recursive = TRUE, showWarnings = FALSE)
@@ -185,3 +207,16 @@ print(p)
 dev.off()
 
 cat(sprintf("[SUCCESS] Volcano plot generation completed: %s\n", out_pdf_path))
+
+write_stage_status(
+  manifest,
+  "bio-04-deg-limma-volcano",
+  "success",
+  "volcano diagnostic rendered from the declared differential result table",
+  commandArgs(trailingOnly = FALSE),
+  c(opt$input, opt$metadata),
+  out_pdf_path,
+  metadata_contract$sample_id,
+  status_path = file.path(opt$outdir, "status", "bio-04-deg-limma-volcano.json"),
+  exit_code = 0
+)

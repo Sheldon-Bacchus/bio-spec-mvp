@@ -8,6 +8,13 @@
 #              DeLong confidence intervals, and logistic regression modeling.
 # ==============================================================================
 
+file_arg <- grep("^--file=", commandArgs(trailingOnly = FALSE), value = TRUE)
+script_dir <- if (length(file_arg) > 0) dirname(normalizePath(sub("^--file=", "", file_arg[1]), winslash = "/", mustWork = FALSE)) else getwd()
+contract_helper <- Sys.getenv("BIO_PIPELINE_CONTRACT_HELPER", "")
+if (!nzchar(contract_helper)) contract_helper <- file.path(dirname(dirname(script_dir)), "bio-pipeline-orchestrator", "scripts", "contract_helpers.R")
+if (!file.exists(contract_helper)) stop("[CONTRACT ERROR] contract_helpers.R not found", call. = FALSE)
+source(contract_helper)
+
 # Explicit library imports
 suppressPackageStartupMessages({
   library(pROC)
@@ -20,9 +27,12 @@ set.seed(12345)
 parse_args <- function() {
   args <- commandArgs(trailingOnly = TRUE)
   params <- list(
-    expr_file = "merged_file.txt",
-    hub_file = "final_hub_genes.txt",
-    group_file = NULL,
+    expr_file = "",
+    hub_file = "",
+    group_file = "",
+    metadata = "",
+    manifest = "",
+    source_revision = "",
     output_dir = ".",
     output_single_pdf = "roc_single_gene.pdf",
     output_combined_pdf = "roc_combined.pdf",
@@ -38,6 +48,12 @@ parse_args <- function() {
       params$hub_file <- sub("^--hub=", "", arg)
     } else if (grepl("^--group=", arg)) {
       params$group_file <- sub("^--group=", "", arg)
+    } else if (grepl("^--metadata=", arg)) {
+      params$metadata <- sub("^--metadata=", "", arg)
+    } else if (grepl("^--manifest=", arg)) {
+      params$manifest <- sub("^--manifest=", "", arg)
+    } else if (grepl("^--source-revision=", arg)) {
+      params$source_revision <- sub("^--source-revision=", "", arg)
     } else if (grepl("^--output-dir=", arg)) {
       params$output_dir <- sub("^--output-dir=", "", arg)
     } else if (grepl("^--single-pdf=", arg)) {
@@ -51,7 +67,9 @@ parse_args <- function() {
       cat("Options:\n")
       cat("  --expr=<path>          Expression matrix path [default: merged_file.txt]\n")
       cat("  --hub=<path>           Hub genes list [default: final_hub_genes.txt]\n")
-      cat("  --group=<path>         Optional group CSV file [default: auto-parse sample names]\n")
+      cat("  --metadata=<path>      Canonical sample metadata CSV/TSV (required)\n")
+      cat("  --manifest=<path>      Run manifest (required)\n")
+      cat("  --source-revision=<s>  Source revision recorded in status (required)\n")
       cat("  --output-dir=<dir>     Output directory [default: .]\n")
       cat("  --single-pdf=<file>    Single gene ROC plot filename [default: roc_single_gene.pdf]\n")
       cat("  --combined-pdf=<file>  Combined ROC plot filename [default: roc_combined.pdf]\n")
@@ -64,31 +82,23 @@ parse_args <- function() {
 
 main <- function() {
   params <- parse_args()
+
+  if (!nzchar(params$expr_file) || !nzchar(params$hub_file) || !nzchar(params$metadata) || !nzchar(params$manifest)) {
+    contract_stop("--expr, --hub, --metadata, and --manifest are required; no filename/group inference is permitted")
+  }
+  params$expr_file <- assert_explicit_path(params$expr_file, "ROC expression matrix", must_exist = TRUE)
+  params$hub_file <- assert_explicit_path(params$hub_file, "hub gene list", must_exist = TRUE)
+  params$metadata <- assert_explicit_path(params$metadata, "sample metadata", must_exist = TRUE)
+  params$manifest <- assert_explicit_path(params$manifest, "manifest", must_exist = TRUE)
+  manifest <- validate_manifest_context(
+    params$manifest,
+    source_revision = if (nzchar(params$source_revision)) params$source_revision else NULL,
+    metadata_path = params$metadata
+  )
   
   # Ensure output directory exists
   if (!dir.exists(params$output_dir)) {
     dir.create(params$output_dir, recursive = TRUE, showWarnings = FALSE)
-  }
-  
-  # Check inputs
-  if (!file.exists(params$expr_file)) {
-    fallback_expr <- "merged_data.csv"
-    if (file.exists(fallback_expr)) {
-      cat(sprintf("[WARN] '%s' not found, using fallback '%s'\n", params$expr_file, fallback_expr))
-      params$expr_file <- fallback_expr
-    } else {
-      stop(sprintf("[ERROR] Expression file not found: %s", params$expr_file))
-    }
-  }
-  
-  if (!file.exists(params$hub_file)) {
-    fallback_hub <- "LASSO.gene.txt"
-    if (file.exists(fallback_hub)) {
-      cat(sprintf("[WARN] '%s' not found, using fallback '%s'\n", params$hub_file, fallback_hub))
-      params$hub_file <- fallback_hub
-    } else {
-      stop(sprintf("[ERROR] Hub genes file not found: %s", params$hub_file))
-    }
   }
   
   # Read Hub Genes
@@ -111,41 +121,20 @@ main <- function() {
   }
   
   # Read Expression Matrix
-  first_line <- readLines(params$expr_file, n = 1, warn = FALSE)
-  sep <- if (grepl(",", first_line)) "," else "\t"
-  expr_raw <- read.table(
-    params$expr_file, 
-    header = TRUE, 
-    sep = sep, 
-    check.names = FALSE, 
-    row.names = 1, 
-    quote = ""
-  )
-  
-  # Transpose: samples as rows, genes as columns
-  expr_t <- as.data.frame(t(expr_raw))
-  sample_names <- rownames(expr_t)
-  
-  # Extract response factor (binary classification)
-  if (!is.null(params$group_file) && file.exists(params$group_file)) {
-    cat(sprintf("[INFO] Reading group annotations from: %s\n", params$group_file))
-    group_df <- read.csv(params$group_file, stringsAsFactors = FALSE, check.names = FALSE)
-    sample_col <- if ("sample" %in% colnames(group_df)) "sample" else colnames(group_df)[1]
-    label_col <- if ("group" %in% colnames(group_df)) "group" else colnames(group_df)[2]
-    
-    label_map <- setNames(as.character(group_df[[label_col]]), as.character(group_df[[sample_col]]))
-    y_raw <- label_map[sample_names]
-    if (any(is.na(y_raw))) {
-      y_raw <- gsub("(.*)\\_(.*)", "\\2", sample_names)
-    }
-  } else {
-    y_raw <- gsub("(.*)\\_(.*)", "\\2", sample_names)
-    if (all(y_raw == sample_names)) {
-      y_raw <- gsub("(.*)[\\.\\-](.*)", "\\2", sample_names)
-    }
+  metadata_contract <- read_metadata_contract(params$metadata)
+  expr_raw <- read_expression_matrix_contract(params$expr_file, metadata_contract)
+  discovery_ids <- metadata_contract$sample_id[metadata_contract$partition == "discovery"]
+  validation_ids <- metadata_contract$sample_id[metadata_contract$partition == "validation"]
+  if (length(discovery_ids) < 4 || length(validation_ids) < 2) {
+    contract_stop("validation_partition_size: discovery needs at least four samples and validation needs at least two samples")
   }
-  
-  disease_labels <- gsub("[0-9]+$", "", y_raw)
+  # The hub list is locked before this stage. Score it only on the independent
+  # validation partition; discovery samples are reserved for model fitting.
+  expr_t <- as.data.frame(t(expr_raw[, validation_ids, drop = FALSE]))
+  sample_names <- rownames(expr_t)
+
+  disease_labels <- metadata_contract$group[match(sample_names, metadata_contract$sample_id)]
+  if (any(is.na(disease_labels))) contract_stop("metadata_sample_mismatch")
   y <- as.factor(disease_labels)
   
   cat("[INFO] Sample distribution per class:\n")
@@ -153,26 +142,21 @@ main <- function() {
   
   levels_y <- levels(y)
   if (length(levels_y) != 2) {
-    stop(sprintf("[ERROR] ROC analysis requires exactly 2 classes, found: %s", paste(levels_y, collapse = ", ")))
+    contract_stop(sprintf("ROC analysis requires exactly 2 classes, found: %s", paste(levels_y, collapse = ", ")))
   }
+  if (min(table(y)) < 2) contract_stop("validation_class_size: each validation class needs at least two samples")
   
   # Match hub genes with columns in expression matrix
   matched_hubs <- intersect(hub_genes, colnames(expr_t))
-  if (length(matched_hubs) == 0) {
-    # Check case-insensitive match
-    lower_cols <- tolower(colnames(expr_t))
-    matched_idx <- match(tolower(hub_genes), lower_cols)
-    matched_idx <- matched_idx[!is.na(matched_idx)]
-    if (length(matched_idx) > 0) {
-      matched_hubs <- colnames(expr_t)[matched_idx]
-    }
-  }
   
   cat(sprintf("[INFO] %d of %d Hub genes matched in expression matrix: %s\n", 
               length(matched_hubs), length(hub_genes), paste(matched_hubs, collapse = ", ")))
   
   if (length(matched_hubs) == 0) {
-    stop("[ERROR] None of the Hub genes were found in the expression matrix columns!")
+    contract_stop("hub_gene_match: none of the locked hub genes are present in the expression matrix")
+  }
+  if (length(setdiff(hub_genes, matched_hubs)) > 0) {
+    contract_stop(sprintf("hub_gene_match: locked hub genes missing from validation matrix: %s", paste(setdiff(hub_genes, matched_hubs), collapse = ", ")))
   }
   
   # 1. Single Gene ROC Calculations
@@ -200,6 +184,9 @@ main <- function() {
       auc_records[[length(auc_records) + 1]] <- data.frame(
         Gene = gene,
         Type = "Single",
+        Assessment = "independent_validation",
+        SelectionPartition = "discovery",
+        ValidationPartition = "validation",
         AUC = round(auc_val, 4),
         CI_lower = round(ci_vals[1], 4),
         CI_upper = round(ci_vals[3], 4),
@@ -211,40 +198,33 @@ main <- function() {
     }
   }
   
-  # 2. Multivariable Logistic Regression Combined ROC (k-fold OUT-OF-FOLD; no in-sample AUC per contracts G-04)
+  # 2. Multivariable Logistic Regression Combined ROC. Fit only on discovery
+  # data and score the locked panel once on the independent validation data.
   combined_roc <- NULL
   if (length(matched_hubs) >= 2) {
-    cat("[INFO] Building multivariable logistic regression panel with k-fold OUT-OF-FOLD prediction...\n")
-    sub_df <- expr_t[, matched_hubs, drop = FALSE]
-    sub_df$disease <- ifelse(y == levels_y[2], 1, 0)
-    
-    # k-fold OOF probabilities (balanced; min 3 samples/fold; LOO fallback for tiny cohorts)
-    n_oof <- nrow(sub_df)
-    k_fold <- if (n_oof >= 12) 5 else if (n_oof >= 6) 3 else 2
-    set.seed(12345)
-    foldid <- integer(n_oof)
-    for (lv in unique(sub_df$disease)) {
-      idx <- which(sub_df$disease == lv)
-      kk <- min(k_fold, length(idx))
-      foldid[idx] <- sample(rep(seq_len(kk), length.out = length(idx)))
-    }
-    oof_prob <- rep(NA_real_, n_oof)
-    for (k_idx in seq_len(k_fold)) {
-      tr <- which(foldid != k_idx)
-      te <- which(foldid == k_idx)
-      if (length(unique(sub_df$disease[tr])) < 2 || length(te) < 1) next
-      glm_k <- tryCatch(
-        glm(disease ~ ., data = sub_df, subset = tr, family = binomial(link = "logit")),
+    cat("[INFO] Fitting the locked panel on discovery data and scoring validation data...\n")
+    discovery_df <- as.data.frame(t(expr_raw[, discovery_ids, drop = FALSE]))
+    validation_df <- expr_t[, matched_hubs, drop = FALSE]
+    discovery_df <- discovery_df[, matched_hubs, drop = FALSE]
+    discovery_df$disease <- factor(metadata_contract$group[match(rownames(discovery_df), metadata_contract$sample_id)], levels = levels_y)
+    validation_df$disease <- factor(y, levels = levels_y)
+    if (length(unique(discovery_df$disease)) == 2 && length(unique(validation_df$disease)) == 2) {
+      glm_fit <- tryCatch(
+        glm(disease ~ ., data = discovery_df, family = binomial(link = "logit")),
         error = function(e) NULL
       )
-      if (!is.null(glm_k)) {
-        oof_prob[te] <- predict(glm_k, newdata = sub_df[te, , drop = FALSE], type = "response")
+      validation_prob <- if (!is.null(glm_fit)) {
+        predict(glm_fit, newdata = validation_df[, matched_hubs, drop = FALSE], type = "response")
+      } else {
+        rep(NA_real_, nrow(validation_df))
       }
+    } else {
+      validation_prob <- rep(NA_real_, nrow(validation_df))
     }
-    
-    if (all(!is.na(oof_prob)) && length(unique(oof_prob)) > 1) {
+
+    if (all(!is.na(validation_prob)) && length(unique(validation_prob)) > 1) {
       combined_roc <- tryCatch({
-        pROC::roc(response = sub_df$disease, predictor = oof_prob, quiet = TRUE, ci = TRUE)
+        pROC::roc(response = validation_df$disease, predictor = validation_prob, quiet = TRUE, ci = TRUE)
       }, error = function(e) {
         NULL
       })
@@ -256,7 +236,10 @@ main <- function() {
         
         auc_records[[length(auc_records) + 1]] <- data.frame(
           Gene = paste("Combined_Panel (", length(matched_hubs), " genes)", sep = ""),
-          Type = "Combined(OOF)",
+          Type = "Combined(IndependentValidation)",
+          Assessment = "independent_validation",
+          SelectionPartition = "discovery",
+          ValidationPartition = "validation",
           AUC = round(comb_auc, 4),
           CI_lower = round(comb_ci[1], 4),
           CI_upper = round(comb_ci[3], 4),
@@ -269,7 +252,13 @@ main <- function() {
     }
   }
   
-  report_df <- do.call(rbind, auc_records)
+  report_df <- if (length(auc_records) > 0) do.call(rbind, auc_records) else data.frame(
+    Gene = character(), Type = character(), Assessment = character(),
+    SelectionPartition = character(), ValidationPartition = character(),
+    AUC = numeric(), CI_lower = numeric(), CI_upper = numeric(),
+    Sensitivity = numeric(), Specificity = numeric(), Cutoff = numeric(),
+    stringsAsFactors = FALSE
+  )
   
   # Export AUC summary table
   out_report_path <- file.path(params$output_dir, params$output_report)
@@ -293,32 +282,40 @@ main <- function() {
   legend_labels <- c()
   legend_cols <- c()
   
-  for (i in seq_along(roc_objects)) {
-    gene_name <- names(roc_objects)[i]
-    r_obj <- roc_objects[[i]]
-    col <- palette_colors[((i - 1) %% length(palette_colors)) + 1]
-    
-    lbl <- sprintf("%s: AUC = %.3f (95%% CI: %.2f - %.2f)", 
-                   gene_name, r_obj$auc, r_obj$ci[1], r_obj$ci[3])
-    legend_labels <- c(legend_labels, lbl)
-    legend_cols <- c(legend_cols, col)
-    
-    if (first_plot) {
-      plot(r_obj, col = col, lwd = 2.2, legacy.axes = TRUE,
-           main = "Hub Biomarker ROC Curves (Individual Evaluation)",
-           xlab = "False Positive Rate (1 - Specificity)",
-           ylab = "True Positive Rate (Sensitivity)",
-           cex.lab = 1.1, cex.main = 1.15)
-      first_plot <- FALSE
-    } else {
-      plot(r_obj, col = col, lwd = 2.2, add = TRUE)
+  if (length(roc_objects) == 0) {
+    plot.new()
+    text(0.5, 0.55, "No valid ROC curve could be computed", cex = 1.1)
+    text(0.5, 0.40, "Status: negative", cex = 0.9)
+  } else {
+    for (i in seq_along(roc_objects)) {
+      gene_name <- names(roc_objects)[i]
+      r_obj <- roc_objects[[i]]
+      col <- palette_colors[((i - 1) %% length(palette_colors)) + 1]
+
+      lbl <- sprintf("%s: AUC = %.3f (95%% CI: %.2f - %.2f)",
+                     gene_name, r_obj$auc, r_obj$ci[1], r_obj$ci[3])
+      legend_labels <- c(legend_labels, lbl)
+      legend_cols <- c(legend_cols, col)
+
+      if (first_plot) {
+        plot(r_obj, col = col, lwd = 2.2, legacy.axes = TRUE,
+             main = "Hub Biomarker ROC Curves (Independent Validation)",
+             xlab = "False Positive Rate (1 - Specificity)",
+             ylab = "True Positive Rate (Sensitivity)",
+             cex.lab = 1.1, cex.main = 1.15)
+        first_plot <- FALSE
+      } else {
+        plot(r_obj, col = col, lwd = 2.2, add = TRUE)
+      }
     }
   }
   
   # Diagonal reference line
   abline(a = 0, b = 1, lty = 2, col = "grey60", lwd = 1.5)
-  legend("bottomright", legend = legend_labels, col = legend_cols, lwd = 2.2, 
-         cex = 0.8, bty = "n", inset = 0.02)
+  if (length(legend_labels) > 0) {
+    legend("bottomright", legend = legend_labels, col = legend_cols, lwd = 2.2,
+           cex = 0.8, bty = "n", inset = 0.02)
+  }
   dev.off()
   cat(sprintf("[SUCCESS] Saved individual ROC curves to: %s\n", out_single_pdf))
   
@@ -341,23 +338,42 @@ main <- function() {
            cex = 0.85, bty = "n", inset = 0.02)
     dev.off()
     cat(sprintf("[SUCCESS] Saved combined ROC curve to: %s\n", out_comb_pdf))
+  } else {
+    pdf(file = out_comb_pdf, width = 6.5, height = 6.2)
+    plot.new()
+    text(0.5, 0.55, "No valid combined ROC curve could be computed", cex = 1.05)
+    text(0.5, 0.40, "Status: negative", cex = 0.9)
+    dev.off()
   }
   
-  # Gate Verification: Single AUC >= 0.70 OR Combined AUC >= 0.80
-  max_single_auc <- max(report_df$AUC[report_df$Type == "Single"], na.rm = TRUE)
-  comb_auc_val <- if ("Combined(OOF)" %in% report_df$Type) report_df$AUC[report_df$Type == "Combined(OOF)"][1] else 0
+  # Gate Verification: Single AUC >= 0.70 OR independent combined AUC >= 0.80.
+  max_single_auc <- if (any(report_df$Type == "Single")) max(report_df$AUC[report_df$Type == "Single"], na.rm = TRUE) else 0
+  comb_auc_val <- if ("Combined(IndependentValidation)" %in% report_df$Type) report_df$AUC[report_df$Type == "Combined(IndependentValidation)"][1] else 0
   
   pass_gate <- (max_single_auc >= params$auc_gate_single) || (comb_auc_val >= params$auc_gate_combined)
   
   if (!pass_gate) {
-    warning(sprintf("[GATE WARNING] Biomarker AUC performance did not reach standard threshold: Max Single AUC = %.3f (target >= %.2f), Combined AUC = %.3f (target >= %.2f)",
-                    max_single_auc, params$auc_gate_single, comb_auc_val, params$auc_gate_combined))
+    cat(sprintf("[NEGATIVE] Biomarker AUC did not reach the declared threshold: Max Single AUC = %.3f (target >= %.2f), Combined AUC = %.3f (target >= %.2f).\n",
+                max_single_auc, params$auc_gate_single, comb_auc_val, params$auc_gate_combined))
   } else {
     cat(sprintf("[GATE PASS] AUC criteria met! Max Single AUC = %.3f, Combined AUC = %.3f\n", 
                 max_single_auc, comb_auc_val))
   }
   
-  cat("[STAGE COMPLETE] bio-10-biomarker-roc completed successfully.\n")
+  roc_status <- if (pass_gate) "success" else "negative"
+  roc_reason <- if (pass_gate) {
+    "independent validation AUC gate passed"
+  } else {
+    "AUC did not meet the declared threshold; metric remains a typed negative result"
+  }
+  write_stage_status(
+    manifest, "bio-10-biomarker-roc", roc_status, roc_reason,
+    commandArgs(trailingOnly = FALSE), c(params$expr_file, params$hub_file, params$metadata),
+    c(out_report_path, out_single_pdf, out_comb_pdf), sample_names,
+    status_path = file.path(params$output_dir, "status", "bio-10-biomarker-roc.json"),
+    exit_code = 0
+  )
+  cat(sprintf("[STAGE %s] bio-10-biomarker-roc completed: %s.\n", toupper(roc_status), roc_reason))
 }
 
 if (!interactive()) {

@@ -8,6 +8,13 @@
 # Reproducibility: set.seed(12345)
 # ==============================================================================
 
+file_arg <- grep("^--file=", commandArgs(trailingOnly = FALSE), value = TRUE)
+script_dir <- if (length(file_arg) > 0) dirname(normalizePath(sub("^--file=", "", file_arg[1]), winslash = "/", mustWork = FALSE)) else getwd()
+contract_helper <- Sys.getenv("BIO_PIPELINE_CONTRACT_HELPER", "")
+if (!nzchar(contract_helper)) contract_helper <- file.path(dirname(dirname(script_dir)), "bio-pipeline-orchestrator", "scripts", "contract_helpers.R")
+if (!file.exists(contract_helper)) stop("[CONTRACT ERROR] contract_helpers.R not found", call. = FALSE)
+source(contract_helper)
+
 suppressPackageStartupMessages({
   library(WGCNA)
 })
@@ -34,9 +41,8 @@ parse_args <- function(defaults) {
     if (grepl("^--", arg)) {
       key_val <- sub("^--", "", arg)
       if (grepl("=", key_val)) {
-        parts <- strsplit(key_val, "=", fixed = TRUE)[[1]]
-        key <- gsub("-", "_", parts[1])
-        res[[key]] <- parts[2]
+        key <- gsub("-", "_", sub("=.*$", "", key_val))
+        res[[key]] <- sub("^[^=]*=", "", key_val)
       } else if (i + 1 <= length(args) && !grepl("^--", args[i + 1])) {
         res[[gsub("-", "_", key_val)]] <- args[i + 1]
         i <- i + 1
@@ -53,8 +59,11 @@ parse_args <- function(defaults) {
 # Defaults
 # ------------------------------------------------------------------------------
 defaults <- list(
-  input = "merge.normalize.txt",
-  clinic = "clinic.csv",
+  input = "",
+  clinic = "",                              # Deprecated alias; use metadata
+  metadata = "",
+  manifest = "",
+  source_revision = "",
   n_genes = "5000",
   r2_cutoff = "0.85",
   max_block_size = "6000",
@@ -70,6 +79,18 @@ opt$max_block_size <- as.integer(opt$max_block_size)
 opt$min_module_size <- as.integer(opt$min_module_size)
 opt$merge_cut_height <- as.numeric(opt$merge_cut_height)
 
+if (!nzchar(opt$input) || !nzchar(opt$metadata) || !nzchar(opt$manifest)) {
+  contract_stop("--input, --metadata, and --manifest are required; trait/sample inference is disabled")
+}
+opt$input <- assert_explicit_path(opt$input, "expression matrix", must_exist = TRUE)
+opt$metadata <- assert_explicit_path(opt$metadata, "sample metadata", must_exist = TRUE)
+opt$manifest <- assert_explicit_path(opt$manifest, "manifest", must_exist = TRUE)
+manifest <- validate_manifest_context(
+  opt$manifest,
+  source_revision = if (nzchar(opt$source_revision)) opt$source_revision else NULL,
+  metadata_path = opt$metadata
+)
+
 if (!dir.exists(opt$outdir)) {
   dir.create(opt$outdir, recursive = TRUE, showWarnings = FALSE)
 }
@@ -81,25 +102,19 @@ cat(sprintf("[INFO] Trait file: %s\n", opt$clinic))
 # ------------------------------------------------------------------------------
 # Step 1: Read Expression Matrix & Top MAD Gene Selection
 # ------------------------------------------------------------------------------
-if (!file.exists(opt$input)) {
-  stop(sprintf("[ERROR] Input matrix not found: %s", opt$input))
-}
-
 # Support both tab-delimited TXT and CSV
-exp_df <- if (grepl("\\.csv$", opt$input, ignore.case = TRUE)) {
-  read.csv(opt$input, header = TRUE, row.names = 1, check.names = FALSE)
-} else {
-  read.table(opt$input, header = TRUE, sep = "\t", row.names = 1, check.names = FALSE, quote = "")
-}
-
-raw_mat <- as.matrix(exp_df)
-mode(raw_mat) <- "numeric"
+metadata_contract <- read_metadata_contract(opt$metadata)
+raw_mat <- read_expression_matrix_contract(opt$input, metadata_contract)
 cat(sprintf("[INFO] Loaded expression matrix: %d genes across %d samples\n", nrow(raw_mat), ncol(raw_mat)))
 
 # Check for genes with zero variance or all NAs
 gsg <- goodSamplesGenes(t(raw_mat), verbose = 3)
 if (!gsg$allOK) {
-  cat("[WARN] Removing outlier samples/genes detected by goodSamplesGenes...\n")
+  if (any(!gsg$goodSamples)) {
+    removed_samples <- colnames(raw_mat)[!gsg$goodSamples]
+    contract_stop(sprintf("sample_quality: goodSamplesGenes would remove canonical samples: %s", paste(removed_samples, collapse = ", ")))
+  }
+  cat("[WARN] Removing genes rejected by goodSamplesGenes; canonical samples are preserved.\n")
   raw_mat <- raw_mat[gsg$goodGenes, gsg$goodSamples]
 }
 
@@ -117,32 +132,16 @@ cat(sprintf("[INFO] Transposed WGCNA matrix: %d samples, %d genes\n", nrow(datEx
 # ------------------------------------------------------------------------------
 # Step 2: Read Phenotype Metadata (clinic.csv) & Align Samples
 # ------------------------------------------------------------------------------
-if (!file.exists(opt$clinic)) {
-  stop(sprintf("[ERROR] Trait metadata file not found: %s", opt$clinic))
-}
-
-datTraits_raw <- read.csv(opt$clinic, header = TRUE, stringsAsFactors = FALSE)
-sample_col <- if ("sample" %in% colnames(datTraits_raw)) "sample" else colnames(datTraits_raw)[1]
-
-# Align sample names
+datTraits_raw <- metadata_contract
 sample_names <- rownames(datExpr)
-trait_match <- match(sample_names, datTraits_raw[[sample_col]])
-
-if (any(is.na(trait_match))) {
-  # Try matching without prefix
-  stripped <- sub("^[^_]+_", "", sample_names)
-  trait_match <- match(stripped, datTraits_raw[[sample_col]])
+if (!identical(as.character(sample_names), as.character(datTraits_raw$sample_id))) {
+  contract_stop("sample_order_mismatch: WGCNA samples and canonical metadata differ")
 }
-
-if (all(is.na(trait_match))) {
-  stop("[ERROR] Sample names in datExpr and clinic.csv do not match at all.")
-}
-
-datTraits <- datTraits_raw[trait_match, , drop = FALSE]
+datTraits <- datTraits_raw
 rownames(datTraits) <- sample_names
 
 # Construct design / numerical trait matrix
-trait_cols <- setdiff(colnames(datTraits), sample_col)
+trait_cols <- intersect(c("group", "batch"), colnames(datTraits))
 numeric_traits <- list()
 
 for (col_name in trait_cols) {
@@ -300,7 +299,25 @@ dev.off()
 # ------------------------------------------------------------------------------
 rdata_path <- file.path(opt$outdir, "wgcna_net.RData")
 cat(sprintf("[INFO] Saving WGCNA workspace to %s\n", rdata_path))
+run_id <- as.character(manifest$run_id)
+source_revision <- as.character(manifest$source_revision)
 save(datExpr, datTraits, trait_df, net, MEs, moduleColors, sft, selected_power,
+     run_id, source_revision,
      file = rdata_path)
+
+if (exists("write_stage_status") && nzchar(opt$manifest)) {
+  write_stage_status(
+    manifest,
+    "bio-03-wgcna",
+    "success",
+    "WGCNA network and module provenance workspace created",
+    commandArgs(trailingOnly = FALSE),
+    c(opt$input, opt$metadata),
+    c(rdata_path, soft_pdf_path, dendro_pdf_path, heatmap_pdf_path),
+    sample_names,
+    status_path = file.path(opt$outdir, "status", "bio-03-wgcna-build.json"),
+    exit_code = 0
+  )
+}
 
 cat("[SUCCESS] Stage 03 WGCNA network construction completed successfully.\n")

@@ -1,6 +1,6 @@
-# Original SOP Source Skills（spec-007 修复版）
+# Original SOP Source Skills（spec-008 contract-hardening worktree）
 
-本目录保留远端并入的 11 个原版生信 SOP 组件的 **修复版**（2026-09-03 spec-007 契约修复 + toy-data 验证通过）。
+本目录保留远端并入的 11 个原版生信 SOP 组件。本 worktree 在固定基线 `5f897bbcd16e64b2d93203964c7f35f29030d3f0` 上执行了 2026-09-15 的 contract-first source-only 修复；改动尚未提交，也不代表 runtime registration 或临床验证。
 
 ## 修复摘要（P0/P1）
 
@@ -14,15 +14,16 @@
 | `bio-06-gene-intersection` | 依赖一致化 |
 | `bio-07-ml-lasso` | 分层 foldid（F-02）；双 lambda 列表；group fail-closed（G-03）；删 top-N 凑数 |
 | `bio-08-ml-randomforest` | 删假 p=0.02（G-04）；置换 rownames 对齐；group fail-closed |
-| `bio-09-hub-literature` | 删并集 fallback（G-06 空交集人工评审）；header 黑名单修正 |
-| `bio-10-biomarker-roc` | 联合模型 k-fold OOF（G-04，禁 in-sample AUC）；Type 标记 Combined(OOF) |
-| `bio-pipeline-orchestrator` | Stage1/5 gate 修复；依赖清单修正；删 typo alias；I/O 契约化 |
+| `bio-09-hub-literature` | 真交集；空交集保留为 typed `negative`，禁止并集/复制 fallback；增加文学步骤 skipped 报告 |
+| `bio-10-biomarker-roc` | discovery 锁定特征、只在独立 validation 分区打分；重叠或缺失验证时不冒充独立 AUC |
+| `bio-pipeline-orchestrator` | 显式 run manifest、路径/metadata 传播、子步骤执行、内容/provenance gate、stale-artifact 拒绝和非零失败传播 |
 
-## 验证状态
+## 验证状态（2026-09-15）
 
-- **R 语法检查**: 16/16 脚本通过
-- **toy-data 全链复跑**（S01→S10）: 通过（S09 空交集按契约触发人工评审路径，记录后放行）
-- **fail-closed 实测**: LASSO 无 --group → GATE ERROR；hub 空交集 → GATE ERROR；连字符 flag 生效
+- **R AST**: 18/18 脚本通过，R 4.6.1
+- **fresh E2E**: S01–S04 success；S05 对 synthetic `g001`-style human symbols 以 `unmapped_input` fail-closed；S06–S10 skipped；整体 exit `1`
+- **package contract tests**: 34 passed；external smoke 61/62（唯一 warning 为 helper-only orchestrator entry）
+- **fail-closed 实测**: 缺失 matrix exit `1`；dry-run 十阶段 skipped 且 `overall_success=false`；未生成正向科学或临床结论
 
 ## 原版归档
 
@@ -30,6 +31,6 @@
 
 ## 契约与基准
 
-- 统一 I/O 契约: `run-working/007-original-sop-speckit/contracts.md`
-- 审查报告: `run-working/007-original-sop-speckit/audit-report.md`
-- 基线报告: `run-working/007-original-sop-speckit/toydata-baseline-report.md`
+- 统一 I/O 与状态契约: `E:\all-agent-workspace\bio-skills-speckit\bio-spec-kit\run-working\008-original-sop-audit-speckit\specs\001-audit-original-sop\contracts\`
+- 验证记录: `E:\all-agent-workspace\bio-skills-speckit\bio-spec-kit\run-working\008-original-sop-audit-speckit\specs\001-audit-original-sop\validation-record.md`
+- fresh E2E 证据: `E:\all-agent-workspace\bio-skills-speckit\bio-spec-kit\run-working\008-original-sop-audit-speckit\specs\001-audit-original-sop\external-evidence\fresh-e2e-run.md`

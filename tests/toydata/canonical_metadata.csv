@@ -1,0 +1,11 @@
+sample_id,group,species,id_type,batch,partition
+control_1,control,Homo sapiens,symbol,GSEA,discovery
+control_2,control,Homo sapiens,symbol,GSEA,discovery
+control_3,control,Homo sapiens,symbol,GSEA,discovery
+treat_1,treat,Homo sapiens,symbol,GSEA,discovery
+treat_2,treat,Homo sapiens,symbol,GSEA,discovery
+treat_3,treat,Homo sapiens,symbol,GSEA,discovery
+control_4,control,Homo sapiens,symbol,GSEB,validation
+control_5,control,Homo sapiens,symbol,GSEB,validation
+treat_4,treat,Homo sapiens,symbol,GSEB,validation
+treat_5,treat,Homo sapiens,symbol,GSEB,validation

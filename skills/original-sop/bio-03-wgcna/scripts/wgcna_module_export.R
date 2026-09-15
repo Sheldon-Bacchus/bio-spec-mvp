@@ -6,6 +6,13 @@
 #              generates MM vs GS scatterplot diagnostics, and exports
 #              geneInfo.csv, module_genes.csv, and candidate hub gene lists.
 # Reproducibility: set.seed(12345)
+# Shared run and metadata contracts.
+file_arg <- grep("^--file=", commandArgs(trailingOnly = FALSE), value = TRUE)
+script_dir <- if (length(file_arg) > 0) dirname(normalizePath(sub("^--file=", "", file_arg[1]), winslash = "/", mustWork = FALSE)) else getwd()
+contract_helper <- Sys.getenv("BIO_PIPELINE_CONTRACT_HELPER", "")
+if (!nzchar(contract_helper)) contract_helper <- file.path(dirname(dirname(script_dir)), "bio-pipeline-orchestrator", "scripts", "contract_helpers.R")
+if (!file.exists(contract_helper)) stop("[CONTRACT ERROR] contract_helpers.R not found", call. = FALSE)
+source(contract_helper)
 tryCatch({ disableWGCNAThreads() }, error = function(e) NULL)
 # ==============================================================================
 
@@ -27,9 +34,8 @@ parse_args <- function(defaults) {
     if (grepl("^--", arg)) {
       key_val <- sub("^--", "", arg)
       if (grepl("=", key_val)) {
-        parts <- strsplit(key_val, "=", fixed = TRUE)[[1]]
-        key <- gsub("-", "_", parts[1])
-        res[[key]] <- parts[2]
+        key <- gsub("-", "_", sub("=.*$", "", key_val))
+        res[[key]] <- sub("^[^=]*=", "", key_val)
       } else if (i + 1 <= length(args) && !grepl("^--", args[i + 1])) {
         res[[gsub("-", "_", key_val)]] <- args[i + 1]
         i <- i + 1
@@ -46,9 +52,12 @@ parse_args <- function(defaults) {
 # Defaults
 # ------------------------------------------------------------------------------
 defaults <- list(
-  rdata = "wgcna_net.RData",
+  rdata = "",
   module = "auto",                           # "auto" or specific color e.g. "brown"
-  trait = "",                                # Trait column name (e.g. "biofilm" or first column)
+  trait = "group",                           # Trait column name from canonical metadata
+  metadata = "",
+  manifest = "",
+  source_revision = "",
   mm_cutoff = "0.80",
   gs_cutoff = "0.20",
   outdir = "."
@@ -58,6 +67,18 @@ opt <- parse_args(defaults)
 opt$mm_cutoff <- as.numeric(opt$mm_cutoff)
 opt$gs_cutoff <- as.numeric(opt$gs_cutoff)
 
+if (!nzchar(opt$rdata) || !nzchar(opt$metadata) || !nzchar(opt$manifest)) {
+  contract_stop("--rdata, --metadata, and --manifest are required")
+}
+opt$rdata <- assert_explicit_path(opt$rdata, "WGCNA workspace", must_exist = TRUE)
+opt$metadata <- assert_explicit_path(opt$metadata, "sample metadata", must_exist = TRUE)
+opt$manifest <- assert_explicit_path(opt$manifest, "manifest", must_exist = TRUE)
+manifest <- validate_manifest_context(
+  opt$manifest,
+  source_revision = if (nzchar(opt$source_revision)) opt$source_revision else NULL,
+  metadata_path = opt$metadata
+)
+
 if (!dir.exists(opt$outdir)) {
   dir.create(opt$outdir, recursive = TRUE, showWarnings = FALSE)
 }
@@ -65,11 +86,18 @@ if (!dir.exists(opt$outdir)) {
 cat("[INFO] Starting WGCNA Module Analysis & Hub Gene Export\n")
 cat(sprintf("[INFO] Loading workspace: %s\n", opt$rdata))
 
-if (!file.exists(opt$rdata)) {
-  stop(sprintf("[ERROR] RData file not found: %s", opt$rdata))
-}
-
 load(opt$rdata)
+
+metadata_contract <- read_metadata_contract(opt$metadata)
+if (!exists("run_id") || !identical(as.character(run_id), as.character(manifest$run_id))) {
+  contract_stop("wgcna_workspace_run_id_mismatch: workspace provenance does not match manifest")
+}
+if (!exists("source_revision") || !identical(as.character(source_revision), as.character(manifest$source_revision))) {
+  contract_stop("wgcna_workspace_source_revision_mismatch")
+}
+if (!identical(as.character(rownames(datExpr)), as.character(metadata_contract$sample_id))) {
+  contract_stop("sample_order_mismatch: WGCNA workspace and canonical metadata differ")
+}
 
 nSamples <- nrow(datExpr)
 nGenes <- ncol(datExpr)
@@ -80,9 +108,7 @@ nGenes <- ncol(datExpr)
 if (nchar(opt$trait) > 0 && opt$trait %in% colnames(trait_df)) {
   target_trait_name <- opt$trait
 } else {
-  # Look for 'biofilm' or 'treat' or take first trait column
-  cands <- grep("biofilm|treat|case", colnames(trait_df), ignore.case = TRUE, value = TRUE)
-  target_trait_name <- if (length(cands) > 0) cands[1] else colnames(trait_df)[1]
+  contract_stop(sprintf("trait '%s' is not present in the workspace; no name-based fallback is allowed", opt$trait))
 }
 
 cat(sprintf("[INFO] Target clinical trait: '%s'\n", target_trait_name))
@@ -212,3 +238,18 @@ write.table(module_genes_df$GeneSymbol, file = hub_genes_path,
 
 cat(sprintf("[SUCCESS] Stage 03 Module Export complete. Found %d total genes, %d meeting hub criteria (|MM|>=%.2f, |GS|>=%.2f).\n",
             nrow(module_genes_df), sum(module_genes_df$is_hub), opt$mm_cutoff, opt$gs_cutoff))
+
+if (exists("write_stage_status") && nzchar(opt$manifest)) {
+  write_stage_status(
+    manifest,
+    "bio-03-wgcna-export",
+    if (nrow(module_genes_df) > 0) "success" else "negative",
+    if (nrow(module_genes_df) > 0) "module export completed with workspace provenance" else "target module contains no genes",
+    commandArgs(trailingOnly = FALSE),
+    c(opt$rdata, opt$metadata),
+    c(gene_info_path, mod_genes_path, hub_genes_path, scatter_pdf_path),
+    rownames(datExpr),
+    status_path = file.path(opt$outdir, "status", "bio-03-wgcna-export.json"),
+    exit_code = 0
+  )
+}
